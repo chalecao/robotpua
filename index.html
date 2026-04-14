@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RobotPUA - 智能社交机器人助手 | robotpua.com</title>
+    <meta name="description" content="RobotPUA 是您最贴心的社交机器人助手，帮助您在社交场合更自信、更高效地沟通。提升社交技巧，优化人际关系。">
+    <meta name="keywords" content="社交机器人,社交助手,沟通技巧,人际关系,AI社交,约会建议,商务沟通">
+    <meta name="author" content="RobotPUA">
+    <link rel="canonical" href="https://robotpua.com">
+    <meta property="og:title" content="RobotPUA - 智能社交机器人助手">
+    <meta property="og:description" content="提升您的社交能力，优化人际沟通，让社交变得更智能">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://robotpua.com">
+    <meta property="og:image" content="https://robotpua.com/og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="RobotPUA - 智能社交机器人助手">
+    <meta name="twitter:description" content="AI 技术赋能，提升您的社交沟通能力">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f0ff;
+            --secondary: #7b2dff;
+            --accent: #ff00aa;
+            --dark: #050510;
+            --darker: #020208;
+            --light: #ffffff;
+            --glow-primary: 0 0 20px rgba(0, 240, 255, 0.5), 0 0 40px rgba(0, 240, 255, 0.3);
+            --glow-secondary: 0 0 20px rgba(123, 45, 255, 0.5), 0 0 40px rgba(123, 45, 255, 0.3);
+            --glow-accent: 0 0 20px rgba(255, 0, 170, 0.5), 0 0 40px rgba(255, 0, 170, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Rajdhani', sans-serif;
+            background: var(--darker);
+            color: var(--light);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Animated Background */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .floating-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.15), transparent 70%);
+            top: -200px;
+            right: -200px;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(123, 45, 255, 0.15), transparent 70%);
+            bottom: -150px;
+            left: -150px;
+            animation-delay: -10s;
+        }
+
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(255, 0, 170, 0.1), transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.05); }
+            50% { transform: translate(-20px, 20px) scale(0.95); }
+            75% { transform: translate(20px, 30px) scale(1.02); }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            background: linear-gradient(to bottom, rgba(2, 2, 8, 0.9), transparent);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: var(--glow-primary);
+            letter-spacing: 3px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--primary);
+            transition: width 0.3s ease;
+            box-shadow: var(--glow-primary);
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 120px 60px 80px;
+        }
+
+        .hero-content {
+            text-align: center;
+            max-width: 1000px;
+            z-index: 1;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 50px;
+            font-size: 12px;
+            color: var(--primary);
+            margin-bottom: 30px;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.4); }
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(48px, 8vw, 80px);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--light) 0%, var(--primary) 50%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+        }
+
+        .hero h1 span {
+            display: block;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-desc {
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 50px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 16px 40px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: var(--dark);
+            box-shadow: var(--glow-primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.6), 0 0 80px rgba(0, 240, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--light);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            box-shadow: var(--glow-primary);
+        }
+
+        /* Robot Illustration */
+        .robot-container {
+            margin-top: 80px;
+            position: relative;
+        }
+
+        .robot-glow {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            filter: blur(60px);
+            opacity: 0.5;
+            animation: robot-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes robot-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+        }
+
+        .robot-svg {
+            width: 280px;
+            height: 280px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Platform Section */
+        .platforms {
+            padding: 100px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-tag {
+            display: inline-block;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            color: var(--primary);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            padding: 8px 20px;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--light), rgba(255, 255, 255, 0.8));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-desc {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .platform-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 50px 40px;
+            text-align: center;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .platform-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(0, 240, 255, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 240, 255, 0.1);
+        }
+
+        .platform-card:hover::before {
+            opacity: 1;
+        }
+
+        .platform-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.1), rgba(123, 45, 255, 0.1));
+            border-radius: 20px;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+        }
+
+        .platform-icon svg {
+            width: 40px;
+            height: 40px;
+            fill: var(--primary);
+        }
+
+        .platform-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--light);
+        }
+
+        .platform-card p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .platform-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 50px;
+            font-size: 12px;
+            color: #00ff88;
+        }
+
+        .platform-status.coming {
+            background: rgba(255, 165, 0, 0.1);
+            border-color: rgba(255, 165, 0, 0.3);
+            color: #ffa500;
+        }
+
+        .platform-status svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 120px 60px;
+            position: relative;
+            z-index: 1;
+            background: linear-gradient(180deg, transparent, rgba(0, 240, 255, 0.02), transparent);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            padding: 40px 30px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            transition: all 0.4s ease;
+            position: relative;
+        }
+
+        .feature-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(0, 240, 255, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 16px;
+            margin-bottom: 25px;
+            box-shadow: var(--glow-primary);
+        }
+
+        .feature-icon svg {
+            width: 28px;
+            height: 28px;
+            fill: var(--dark);
+        }
+
+        .feature-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--light);
+        }
+
+        .feature-card p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        /* Coming Soon Section */
+        .coming-soon {
+            padding: 100px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .coming-grid {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .coming-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 25px 35px;
+            background: rgba(123, 45, 255, 0.05);
+            border: 1px solid rgba(123, 45, 255, 0.2);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .coming-card:hover {
+            background: rgba(123, 45, 255, 0.1);
+            border-color: rgba(123, 45, 255, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .coming-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(123, 45, 255, 0.2);
+            border-radius: 12px;
+        }
+
+        .coming-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--secondary);
+        }
+
+        .coming-info h4 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--light);
+            margin-bottom: 5px;
+        }
+
+        .coming-info span {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 150px 60px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-content {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .cta::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.1), transparent 70%);
+            filter: blur(80px);
+            pointer-events: none;
+        }
+
+        .cta h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(36px, 5vw, 56px);
+            font-weight: 700;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, var(--light), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cta p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            margin-bottom: 50px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .footer-copy {
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 13px;
+        }
+
+        /* Scan Animation */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: scan 3s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes scan {
+            0% { top: 0; opacity: 0.5; }
+            50% { opacity: 0.8; }
+            100% { top: 100%; opacity: 0.5; }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            nav {
+                padding: 15px 25px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 100px 25px 60px;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero-desc {
+                font-size: 16px;
+            }
+
+            .platforms,
+            .features,
+            .coming-soon,
+            .cta {
+                padding: 60px 25px;
+            }
+
+            .platform-card {
+                padding: 35px 25px;
+            }
+
+            .btn {
+                padding: 14px 30px;
+                font-size: 13px;
+            }
+
+            .robot-svg {
+                width: 200px;
+                height: 200px;
+            }
+        }
+
+        /* Scroll Animations */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+    <div class="floating-orb orb-3"></div>
+
+    <nav>
+        <div class="logo">NEXUS AI</div>
+        <ul class="nav-links">
+            <li><a href="#platforms">下载</a></li>
+            <li><a href="#features">功能</a></li>
+            <li><a href="#coming">即将推出</a></li>
+            <li><a href="#contact">联系</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                <span>新一代 AI 交互体验</span>
+            </div>
+            <h1>
+                与未来对话
+                <span>AI 视频机器人</span>
+            </h1>
+            <p class="hero-desc">
+                突破想象边界的智能交互方式。NEXUS AI 让您与前沿人工智能进行实时视频对话，开启下一代人机交互体验。
+            </p>
+            <div class="hero-buttons">
+                <a href="#platforms" class="btn btn-primary">立即体验</a>
+                <a href="#features" class="btn btn-secondary">了解功能</a>
+            </div>
+
+            <div class="robot-container">
+                <div class="robot-glow"></div>
+                <svg class="robot-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Robot Head -->
+                    <defs>
+                        <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00f0ff;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#7b2dff;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00f0ff" />
+                            <stop offset="100%" style="stop-color:#00ff88" />
+                        </linearGradient>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    
+                    <!-- Antenna -->
+                    <line x1="100" y1="30" x2="100" y2="15" stroke="url(#headGrad)" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="100" cy="10" r="5" fill="#00f0ff" filter="url(#glow)">
+                        <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                    
+                    <!-- Head -->
+                    <rect x="50" y="35" width="100" height="85" rx="20" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="2"/>
+                    
+                    <!-- Face Panel -->
+                    <rect x="60" y="50" width="80" height="55" rx="10" fill="#0f0f25" stroke="rgba(0,240,255,0.3)" stroke-width="1"/>
+                    
+                    <!-- Eyes -->
+                    <ellipse cx="80" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2"/>
+                    <ellipse cx="120" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2"/>
+                    
+                    <!-- Eye Glow -->
+                    <circle cx="80" cy="72" r="6" fill="url(#eyeGrad)" filter="url(#glow)">
+                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="120" cy="72" r="6" fill="url(#eyeGrad)" filter="url(#glow)">
+                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                    
+                    <!-- Mouth -->
+                    <path d="M75 95 Q100 105 125 95" stroke="#00f0ff" stroke-width="2" fill="none" stroke-linecap="round">
+                        <animate attributeName="d" values="M75 95 Q100 105 125 95;M75 95 Q100 100 125 95;M75 95 Q100 105 125 95" dur="3s" repeatCount="indefinite"/>
+                    </path>
+                    
+                    <!-- Neck -->
+                    <rect x="85" y="120" width="30" height="15" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="1"/>
+                    
+                    <!-- Body -->
+                    <rect x="55" y="135" width="90" height="50" rx="15" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="2"/>
+                    
+                    <!-- Body Details -->
+                    <circle cx="100" cy="160" r="12" fill="#0f0f25" stroke="#7b2dff" stroke-width="2">
+                        <animate attributeName="stroke-opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="100" cy="160" r="6" fill="#7b2dff" filter="url(#glow)">
+                        <animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                    
+                    <!-- Side Lights -->
+                    <rect x="62" y="150" width="8" height="20" rx="4" fill="#00f0ff" opacity="0.6">
+                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+                    </rect>
+                    <rect x="130" y="150" width="8" height="20" rx="4" fill="#7b2dff" opacity="0.6">
+                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
+                    </rect>
+                </svg>
+                <div class="scan-line"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="platforms" id="platforms">
+        <div class="section-header fade-up">
+            <div class="section-tag">APPLICATIONS</div>
+            <h2 class="section-title">应用场景</h2>
+            <p class="section-desc">RobotPUA 为您在不同社交场合提供智能支持</p>
+        </div>
+
+        <div class="platform-grid">
+            <div class="platform-card fade-up">
+                <div class="platform-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                </div>
+                <h3>macOS</h3>
+                <p>为 Apple 设备优化，支持 M1/M2/M3 芯片，流畅体验</p>
+                <span class="platform-status">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    正式版可用
+                </span>
+            </div>
+
+            <div class="platform-card fade-up">
+                <div class="platform-icon">
+                    <svg viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm12.9 0L24 3.449v8.102H12.9V3.449zM12.9 13.35H24v8.1l-11.1-1.801v-6.299zM0 13.35h9.75v6.3L0 20.699v-7.349z"/></svg>
+                </div>
+                <h3>Windows</h3>
+                <p>兼容 Windows 10/11，Intel 和 AMD 平台完美支持</p>
+                <span class="platform-status">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    正式版可用
+                </span>
+            </div>
+
+            <div class="platform-card fade-up">
+                <div class="platform-icon">
+                    <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+                </div>
+                <h3>商务沟通</h3>
+                <p>会议发言、商务谈判等场合，提供专业的沟通策略和建议</p>
+                <span class="platform-status">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    专业支持
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="section-header fade-up">
+            <div class="section-tag">FEATURES</div>
+            <h2 class="section-title">核心功能</h2>
+            <p class="section-desc">前沿技术驱动，颠覆传统交互方式</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7z"/></svg>
+                </div>
+                <h3>实时视频交互</h3>
+                <p>超低延迟的实时视频对话技术，仿佛与真人交流般自然流畅</p>
+            </div>
+
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 11.5v-1c0-.8-.7-1.5-1.5-1.5H16v6h1.5v-2h1.1l.9 2H21l-.9-2.1c.5-.3.9-.8.9-1.4zm-1.5 0h-2v-1h2v1zm-13-.5h-2V9H3v6h1.5v-2.5h2V15H8V9H6.5v2zM14 9h-3.5v6H14c.8 0 1.5-.7 1.5-1.5v-3c0-.8-.7-1.5-1.5-1.5zm0 4.5h-2v-3h2v3z"/></svg>
+                </div>
+                <h3>多语言支持</h3>
+                <p>支持中英日韩等 20+ 种语言实时翻译，沟通无国界</p>
+            </div>
+
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 13.08L5.62 12 12 8.92 18.38 12 12 16.08z"/></svg>
+                </div>
+                <h3>社交分析</h3>
+                <p>分析聊天记录，提供改进建议，帮助您提升社交技巧</p>
+            </div>
+
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                </div>
+                <h3>隐私保护</h3>
+                <p>端到端加密技术，本地化数据处理，您的隐私绝对安全</p>
+            </div>
+
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                </div>
+                <h3>个性化定制</h3>
+                <p>自定义 AI 机器人外观、声音和性格，打造专属助手</p>
+            </div>
+
+            <div class="feature-card fade-up">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24"><path d="M7.5 21.5c.7 1.3 1.7 2.3 3 3 .1.1.1.1.1.2l-.1.1c-.5.6-1.4.8-2.1.4-.1-.1-.2-.1-.3-.2-.8-.7-1.4-1.6-1.8-2.7-.1-.2.1-.4.2-.5.1-.1.2-.1.4 0 .1 0 .2.1.3.2zM7.5 2.5c-.7-1.3-1.7-2.3-3-3-.1-.1-.1-.1-.1-.2l.1-.1c.5-.6 1.4-.8 2.1-.4.1.1.2.1.3.2.8.7 1.4 1.6 1.8 2.7.1.2-.1.4-.2.5-.1.1-.2.1-.4 0-.1 0-.2-.1-.3-.2zM19.5 9.5c-.1 1.1-.5 2.1-1.2 3-.1.1-.1.1-.2.1-.1 0-.2.1-.2.2-.1.1-.1.3 0 .4.1.1.2.1.4.1.3 0 .6-.1.9-.3.8-.6 1.4-1.5 1.8-2.5.1-.2.1-.4 0-.5 0-.1-.1-.2-.2-.2-.2-.1-.3-.1-.5 0-.3 0-.6.1-.8.2zM21.7 17.3c.8-.7 1.4-1.6 1.8-2.7.1-.2.1-.4 0-.5-.1-.1-.1-.2-.2-.2-.1-.1-.3-.1-.4 0-.3.1-.6.3-.8.6-.6.8-1 1.7-1.2 2.8-.1.1-.1.3 0 .4 0 .1.1.2.2.2h.1c.1 0 .3 0 .4-.1.1 0 .1-.2.1-.3zM4.5 9.5c.1-1.1.5-2.1 1.2-3 .1-.1.1-.1.2-.1.1 0 .2-.1.2-.2.1-.1.1-.3 0-.4-.1-.1-.2-.1-.4-.1-.3 0-.6.1-.9.3-.8.6-1.4 1.5-1.8 2.5-.1.2-.1.4 0 .5 0 .1.1.2.2.2.2.1.3.1.5 0 .3 0 .6-.1.8-.2zM2.3 17.3c-.8-.7-1.4-1.6-1.8-2.7-.1-.2-.1-.4 0-.5 0-.1.1-.2.2-.2.1-.1.3-.1.4 0 .3.1.6.3.8.6.6.8 1 1.7 1.2 2.8.1.1.1.3 0 .4 0 .1-.1.2-.2.2h-.1c-.1 0-.3 0-.4-.1-.1 0-.1-.2-.1-.3zM12 8c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm0 7c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z"/></svg>
+                </div>
+                <h3>场景化学习</h3>
+                <p>针对不同社交场景（约会、商务、聚会）提供专项学习和训练</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="coming-soon" id="coming">
+        <div class="section-header fade-up">
+            <div class="section-tag">COMING SOON</div>
+            <h2 class="section-title">更多产品即将推出</h2>
+            <p class="section-desc">持续扩展 AI 机器人生态，敬请期待</p>
+        </div>
+
+        <div class="coming-grid">
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8h2v8H9zm4 2h2v4h-2zm-8 4h2v2H5z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>iOS 版本</h4>
+                    <span>开发中 - 预计 2026 Q2</span>
+                </div>
+            </div>
+
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>肢体语言识别</h4>
+                    <span>开发中 - 预计 2026 Q3</span>
+                </div>
+            </div>
+
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>多语言聊天</h4>
+                    <span>开发中 - 预计 2026 Q2</span>
+                </div>
+            </div>
+
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>Linux 版本</h4>
+                    <span>开发中 - 预计 2026 Q3</span>
+                </div>
+            </div>
+
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>智能家居 SDK</h4>
+                    <span>开发中 - 预计 2026 Q4</span>
+                </div>
+            </div>
+
+            <div class="coming-card fade-up">
+                <div class="coming-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10h5v-2h-5c-4.34 0-8-3.66-8-8s3.66-8 8-8 8 3.66 8 8v1.43c0 .79-.71 1.57-1.5 1.57s-1.5-.78-1.5-1.57V12c0-2.76-2.24-5-5-5s-5 2.24-5 5 2.24 5 5 5c1.38 0 2.64-.56 3.54-1.47.65.89 1.77 1.47 2.96 1.47 1.97 0 3.5-1.6 3.5-3.57V12c0-5.52-4.48-10-10-10zm0 13c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+                </div>
+                <div class="coming-info">
+                    <h4>语音聊天助手</h4>
+                    <span>开发中 - 预计 2026 Q4</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta" id="contact">
+        <div class="cta-content fade-up">
+            <h2>准备好与未来对话了吗？</h2>
+            <p>立即下载 NEXUS AI，开启您的智能交互之旅</p>
+            <div class="hero-buttons">
+                <a href="#platforms" class="btn btn-primary">立即下载</a>
+                <a href="#" class="btn btn-secondary">联系我们</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-logo">RobotPUA<span class="logo-domain">robotpua.com</span></div>
+        <div class="footer-links">
+            <a href="#">关于我们</a>
+            <a href="#features">功能</a>
+            <a href="#platforms">应用场景</a>
+            <a href="#coming">更新</a>
+            <a href="#">博客</a>
+            <a href="mailto:support@robotpua.com">支持</a>
+            <a href="#">隐私政策</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 RobotPUA. robotpua.com All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Scroll Animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-up').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Parallax effect for floating orbs
+        document.addEventListener('mousemove', (e) => {
+            const orbs = document.querySelectorAll('.floating-orb');
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            orbs.forEach((orb, index) => {
+                const speed = (index + 1) * 20;
+                orb.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+            });
+        });
+    </script>
+</body>
+</html>
