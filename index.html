@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +21,9 @@
     <link rel="shortcut icon" href="https://robotpua.com/icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --primary: #00f0ff;
@@ -59,7 +62,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: 
+            background-image:
                 linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
             background-size: 50px 50px;
@@ -104,10 +107,23 @@
         }
 
         @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, -30px) scale(1.05); }
-            50% { transform: translate(-20px, 20px) scale(0.95); }
-            75% { transform: translate(20px, 30px) scale(1.02); }
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(30px, -30px) scale(1.05);
+            }
+
+            50% {
+                transform: translate(-20px, 20px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(20px, 30px) scale(1.02);
+            }
         }
 
         /* Navigation */
@@ -205,8 +221,15 @@
         }
 
         @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); }
-            50% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.4); }
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(0, 240, 255, 0.4);
+            }
         }
 
         .hero-badge .dot {
@@ -218,8 +241,15 @@
         }
 
         @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
         }
 
         .hero h1 {
@@ -316,8 +346,17 @@
         }
 
         @keyframes robot-pulse {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
+
+            0%,
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.7;
+            }
         }
 
         .robot-svg {
@@ -693,9 +732,19 @@
         }
 
         @keyframes scan {
-            0% { top: 0; opacity: 0.5; }
-            50% { opacity: 0.8; }
-            100% { top: 100%; opacity: 0.5; }
+            0% {
+                top: 0;
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0.5;
+            }
         }
 
         /* Mobile Responsive */
@@ -755,6 +804,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="bg-grid"></div>
     <div class="floating-orb orb-1"></div>
@@ -762,7 +812,7 @@
     <div class="floating-orb orb-3"></div>
 
     <nav>
-        <div class="logo">NEXUS AI</div>
+        <div class="logo">ROBOT PUA AI</div>
         <ul class="nav-links">
             <li><a href="#platforms">下载</a></li>
             <li><a href="#features">功能</a></li>
@@ -803,63 +853,72 @@
                             <stop offset="100%" style="stop-color:#00ff88" />
                         </linearGradient>
                         <filter id="glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                             <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
+                                <feMergeNode in="coloredBlur" />
+                                <feMergeNode in="SourceGraphic" />
                             </feMerge>
                         </filter>
                     </defs>
-                    
+
                     <!-- Antenna -->
-                    <line x1="100" y1="30" x2="100" y2="15" stroke="url(#headGrad)" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="100" y1="30" x2="100" y2="15" stroke="url(#headGrad)" stroke-width="3"
+                        stroke-linecap="round" />
                     <circle cx="100" cy="10" r="5" fill="#00f0ff" filter="url(#glow)">
-                        <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
                     </circle>
-                    
+
                     <!-- Head -->
-                    <rect x="50" y="35" width="100" height="85" rx="20" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="2"/>
-                    
+                    <rect x="50" y="35" width="100" height="85" rx="20" fill="#0a0a1a" stroke="url(#headGrad)"
+                        stroke-width="2" />
+
                     <!-- Face Panel -->
-                    <rect x="60" y="50" width="80" height="55" rx="10" fill="#0f0f25" stroke="rgba(0,240,255,0.3)" stroke-width="1"/>
-                    
+                    <rect x="60" y="50" width="80" height="55" rx="10" fill="#0f0f25" stroke="rgba(0,240,255,0.3)"
+                        stroke-width="1" />
+
                     <!-- Eyes -->
-                    <ellipse cx="80" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2"/>
-                    <ellipse cx="120" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2"/>
-                    
+                    <ellipse cx="80" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2" />
+                    <ellipse cx="120" cy="72" rx="15" ry="12" fill="#0a0a1a" stroke="#00f0ff" stroke-width="2" />
+
                     <!-- Eye Glow -->
                     <circle cx="80" cy="72" r="6" fill="url(#eyeGrad)" filter="url(#glow)">
-                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite" />
                     </circle>
                     <circle cx="120" cy="72" r="6" fill="url(#eyeGrad)" filter="url(#glow)">
-                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite" />
                     </circle>
-                    
+
                     <!-- Mouth -->
-                    <path d="M75 95 Q100 105 125 95" stroke="#00f0ff" stroke-width="2" fill="none" stroke-linecap="round">
-                        <animate attributeName="d" values="M75 95 Q100 105 125 95;M75 95 Q100 100 125 95;M75 95 Q100 105 125 95" dur="3s" repeatCount="indefinite"/>
+                    <path d="M75 95 Q100 105 125 95" stroke="#00f0ff" stroke-width="2" fill="none"
+                        stroke-linecap="round">
+                        <animate attributeName="d"
+                            values="M75 95 Q100 105 125 95;M75 95 Q100 100 125 95;M75 95 Q100 105 125 95" dur="3s"
+                            repeatCount="indefinite" />
                     </path>
-                    
+
                     <!-- Neck -->
-                    <rect x="85" y="120" width="30" height="15" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="1"/>
-                    
+                    <rect x="85" y="120" width="30" height="15" fill="#0a0a1a" stroke="url(#headGrad)"
+                        stroke-width="1" />
+
                     <!-- Body -->
-                    <rect x="55" y="135" width="90" height="50" rx="15" fill="#0a0a1a" stroke="url(#headGrad)" stroke-width="2"/>
-                    
+                    <rect x="55" y="135" width="90" height="50" rx="15" fill="#0a0a1a" stroke="url(#headGrad)"
+                        stroke-width="2" />
+
                     <!-- Body Details -->
                     <circle cx="100" cy="160" r="12" fill="#0f0f25" stroke="#7b2dff" stroke-width="2">
-                        <animate attributeName="stroke-opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+                        <animate attributeName="stroke-opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite" />
                     </circle>
                     <circle cx="100" cy="160" r="6" fill="#7b2dff" filter="url(#glow)">
-                        <animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite"/>
+                        <animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite" />
                     </circle>
-                    
+
                     <!-- Side Lights -->
                     <rect x="62" y="150" width="8" height="20" rx="4" fill="#00f0ff" opacity="0.6">
-                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" />
                     </rect>
                     <rect x="130" y="150" width="8" height="20" rx="4" fill="#7b2dff" opacity="0.6">
-                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" begin="0.5s"/>
+                        <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"
+                            begin="0.5s" />
                     </rect>
                 </svg>
                 <div class="scan-line"></div>
@@ -877,36 +936,55 @@
         <div class="platform-grid">
             <div class="platform-card fade-up">
                 <div class="platform-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                    </svg>
                 </div>
                 <h3>macOS</h3>
                 <p>为 Apple 设备优化，支持 M1/M2/M3 芯片，流畅体验</p>
                 <span class="platform-status">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-                    <a href="https://pan.quark.cn/s/a78837b0ef02?pwd=E5y3" target="_blank" referrerpolicy="no-referrer no-opener" >点击下载</a>
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                    </svg>
+                    <a href="https://pan.quark.cn/s/a78837b0ef02?pwd=E5y3"
+                        style="text-decoration: none; color: inherit;" target="_blank"
+                        referrerpolicy="no-referrer no-opener">点击下载</a>
                 </span>
             </div>
 
             <div class="platform-card fade-up">
                 <div class="platform-icon">
-                    <svg viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0V3.449zm12.9 0L24 3.449v8.102H12.9V3.449zM12.9 13.35H24v8.1l-11.1-1.801v-6.299zM0 13.35h9.75v6.3L0 20.699v-7.349z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M0 3.449L9.75 2.1v9.451H0V3.449zm12.9 0L24 3.449v8.102H12.9V3.449zM12.9 13.35H24v8.1l-11.1-1.801v-6.299zM0 13.35h9.75v6.3L0 20.699v-7.349z" />
+                    </svg>
                 </div>
                 <h3>Windows</h3>
                 <p>兼容 Windows 10/11，Intel 和 AMD 平台完美支持</p>
                 <span class="platform-status">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-                    敬请期待
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                    </svg>
+                    <a href="https://pan.quark.cn/s/a78837b0ef02?pwd=E5y3"
+                        style="text-decoration: none; color: inherit;" target="_blank"
+                        referrerpolicy="no-referrer no-opener">点击下载</a>
                 </span>
             </div>
 
             <div class="platform-card fade-up">
                 <div class="platform-icon">
-                    <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" />
+                    </svg>
                 </div>
                 <h3>商务沟通</h3>
                 <p>会议发言、商务谈判等场合，提供专业的沟通策略和建议</p>
                 <span class="platform-status">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                    </svg>
                     专业支持
                 </span>
             </div>
@@ -923,7 +1001,10 @@
         <div class="features-grid">
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-6c.78 2.34 2.72 4 5 4s4.22-1.66 5-4H7z" />
+                    </svg>
                 </div>
                 <h3>实时视频交互</h3>
                 <p>超低延迟的实时视频对话技术，仿佛与真人交流般自然流畅</p>
@@ -931,7 +1012,10 @@
 
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M21 11.5v-1c0-.8-.7-1.5-1.5-1.5H16v6h1.5v-2h1.1l.9 2H21l-.9-2.1c.5-.3.9-.8.9-1.4zm-1.5 0h-2v-1h2v1zm-13-.5h-2V9H3v6h1.5v-2.5h2V15H8V9H6.5v2zM14 9h-3.5v6H14c.8 0 1.5-.7 1.5-1.5v-3c0-.8-.7-1.5-1.5-1.5zm0 4.5h-2v-3h2v3z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M21 11.5v-1c0-.8-.7-1.5-1.5-1.5H16v6h1.5v-2h1.1l.9 2H21l-.9-2.1c.5-.3.9-.8.9-1.4zm-1.5 0h-2v-1h2v1zm-13-.5h-2V9H3v6h1.5v-2.5h2V15H8V9H6.5v2zM14 9h-3.5v6H14c.8 0 1.5-.7 1.5-1.5v-3c0-.8-.7-1.5-1.5-1.5zm0 4.5h-2v-3h2v3z" />
+                    </svg>
                 </div>
                 <h3>多语言支持</h3>
                 <p>支持中英日韩等 20+ 种语言实时翻译，沟通无国界</p>
@@ -939,7 +1023,9 @@
 
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 13.08L5.62 12 12 8.92 18.38 12 12 16.08z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm0 13.08L5.62 12 12 8.92 18.38 12 12 16.08z" />
+                    </svg>
                 </div>
                 <h3>社交分析</h3>
                 <p>分析聊天记录，提供改进建议，帮助您提升社交技巧</p>
@@ -947,7 +1033,10 @@
 
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+                    </svg>
                 </div>
                 <h3>隐私保护</h3>
                 <p>端到端加密技术，本地化数据处理，您的隐私绝对安全</p>
@@ -955,7 +1044,10 @@
 
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                    </svg>
                 </div>
                 <h3>个性化定制</h3>
                 <p>自定义 AI 机器人外观、声音和性格，打造专属助手</p>
@@ -963,7 +1055,10 @@
 
             <div class="feature-card fade-up">
                 <div class="feature-icon">
-                    <svg viewBox="0 0 24 24"><path d="M7.5 21.5c.7 1.3 1.7 2.3 3 3 .1.1.1.1.1.2l-.1.1c-.5.6-1.4.8-2.1.4-.1-.1-.2-.1-.3-.2-.8-.7-1.4-1.6-1.8-2.7-.1-.2.1-.4.2-.5.1-.1.2-.1.4 0 .1 0 .2.1.3.2zM7.5 2.5c-.7-1.3-1.7-2.3-3-3-.1-.1-.1-.1-.1-.2l.1-.1c.5-.6 1.4-.8 2.1-.4.1.1.2.1.3.2.8.7 1.4 1.6 1.8 2.7.1.2-.1.4-.2.5-.1.1-.2.1-.4 0-.1 0-.2-.1-.3-.2zM19.5 9.5c-.1 1.1-.5 2.1-1.2 3-.1.1-.1.1-.2.1-.1 0-.2.1-.2.2-.1.1-.1.3 0 .4.1.1.2.1.4.1.3 0 .6-.1.9-.3.8-.6 1.4-1.5 1.8-2.5.1-.2.1-.4 0-.5 0-.1-.1-.2-.2-.2-.2-.1-.3-.1-.5 0-.3 0-.6.1-.8.2zM21.7 17.3c.8-.7 1.4-1.6 1.8-2.7.1-.2.1-.4 0-.5-.1-.1-.1-.2-.2-.2-.1-.1-.3-.1-.4 0-.3.1-.6.3-.8.6-.6.8-1 1.7-1.2 2.8-.1.1-.1.3 0 .4 0 .1.1.2.2.2h.1c.1 0 .3 0 .4-.1.1 0 .1-.2.1-.3zM4.5 9.5c.1-1.1.5-2.1 1.2-3 .1-.1.1-.1.2-.1.1 0 .2-.1.2-.2.1-.1.1-.3 0-.4-.1-.1-.2-.1-.4-.1-.3 0-.6.1-.9.3-.8.6-1.4 1.5-1.8 2.5-.1.2-.1.4 0 .5 0 .1.1.2.2.2.2.1.3.1.5 0 .3 0 .6-.1.8-.2zM2.3 17.3c-.8-.7-1.4-1.6-1.8-2.7-.1-.2-.1-.4 0-.5 0-.1.1-.2.2-.2.1-.1.3-.1.4 0 .3.1.6.3.8.6.6.8 1 1.7 1.2 2.8.1.1.1.3 0 .4 0 .1-.1.2-.2.2h-.1c-.1 0-.3 0-.4-.1-.1 0-.1-.2-.1-.3zM12 8c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm0 7c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M7.5 21.5c.7 1.3 1.7 2.3 3 3 .1.1.1.1.1.2l-.1.1c-.5.6-1.4.8-2.1.4-.1-.1-.2-.1-.3-.2-.8-.7-1.4-1.6-1.8-2.7-.1-.2.1-.4.2-.5.1-.1.2-.1.4 0 .1 0 .2.1.3.2zM7.5 2.5c-.7-1.3-1.7-2.3-3-3-.1-.1-.1-.1-.1-.2l.1-.1c.5-.6 1.4-.8 2.1-.4.1.1.2.1.3.2.8.7 1.4 1.6 1.8 2.7.1.2-.1.4-.2.5-.1.1-.2.1-.4 0-.1 0-.2-.1-.3-.2zM19.5 9.5c-.1 1.1-.5 2.1-1.2 3-.1.1-.1.1-.2.1-.1 0-.2.1-.2.2-.1.1-.1.3 0 .4.1.1.2.1.4.1.3 0 .6-.1.9-.3.8-.6 1.4-1.5 1.8-2.5.1-.2.1-.4 0-.5 0-.1-.1-.2-.2-.2-.2-.1-.3-.1-.5 0-.3 0-.6.1-.8.2zM21.7 17.3c.8-.7 1.4-1.6 1.8-2.7.1-.2.1-.4 0-.5-.1-.1-.1-.2-.2-.2-.1-.1-.3-.1-.4 0-.3.1-.6.3-.8.6-.6.8-1 1.7-1.2 2.8-.1.1-.1.3 0 .4 0 .1.1.2.2.2h.1c.1 0 .3 0 .4-.1.1 0 .1-.2.1-.3zM4.5 9.5c.1-1.1.5-2.1 1.2-3 .1-.1.1-.1.2-.1.1 0 .2-.1.2-.2.1-.1.1-.3 0-.4-.1-.1-.2-.1-.4-.1-.3 0-.6.1-.9.3-.8.6-1.4 1.5-1.8 2.5-.1.2-.1.4 0 .5 0 .1.1.2.2.2.2.1.3.1.5 0 .3 0 .6-.1.8-.2zM2.3 17.3c-.8-.7-1.4-1.6-1.8-2.7-.1-.2-.1-.4 0-.5 0-.1.1-.2.2-.2.1-.1.3-.1.4 0 .3.1.6.3.8.6.6.8 1 1.7 1.2 2.8.1.1.1.3 0 .4 0 .1-.1.2-.2.2h-.1c-.1 0-.3 0-.4-.1-.1 0-.1-.2-.1-.3zM12 8c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm0 7c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" />
+                    </svg>
                 </div>
                 <h3>场景化学习</h3>
                 <p>针对不同社交场景（约会、商务、聚会）提供专项学习和训练</p>
@@ -981,7 +1076,10 @@
         <div class="coming-grid">
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8h2v8H9zm4 2h2v4h-2zm-8 4h2v2H5z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8h2v8H9zm4 2h2v4h-2zm-8 4h2v2H5z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>iOS 版本</h4>
@@ -991,7 +1089,10 @@
 
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M18.5 3H6c-1.1 0-2 .9-2 2v5.71c0 3.83 2.95 7.18 6.78 7.29 3.96.12 7.22-3.06 7.22-7v-1h.5c1.93 0 3.5-1.57 3.5-3.5S20.43 3 18.5 3zM16 5v3H6V5h10zm2.5 3H18V5h.5c.83 0 1.5.67 1.5 1.5S19.33 8 18.5 8z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>肢体语言识别</h4>
@@ -1001,7 +1102,10 @@
 
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>多语言聊天</h4>
@@ -1011,7 +1115,10 @@
 
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>Linux 版本</h4>
@@ -1021,7 +1128,10 @@
 
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>智能家居 SDK</h4>
@@ -1031,7 +1141,10 @@
 
             <div class="coming-card fade-up">
                 <div class="coming-icon">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10h5v-2h-5c-4.34 0-8-3.66-8-8s3.66-8 8-8 8 3.66 8 8v1.43c0 .79-.71 1.57-1.5 1.57s-1.5-.78-1.5-1.57V12c0-2.76-2.24-5-5-5s-5 2.24-5 5 2.24 5 5 5c1.38 0 2.64-.56 3.54-1.47.65.89 1.77 1.47 2.96 1.47 1.97 0 3.5-1.6 3.5-3.57V12c0-5.52-4.48-10-10-10zm0 13c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10h5v-2h-5c-4.34 0-8-3.66-8-8s3.66-8 8-8 8 3.66 8 8v1.43c0 .79-.71 1.57-1.5 1.57s-1.5-.78-1.5-1.57V12c0-2.76-2.24-5-5-5s-5 2.24-5 5 2.24 5 5 5c1.38 0 2.64-.56 3.54-1.47.65.89 1.77 1.47 2.96 1.47 1.97 0 3.5-1.6 3.5-3.57V12c0-5.52-4.48-10-10-10zm0 13c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
+                    </svg>
                 </div>
                 <div class="coming-info">
                     <h4>语音聊天助手</h4>
@@ -1104,7 +1217,7 @@
             const orbs = document.querySelectorAll('.floating-orb');
             const x = e.clientX / window.innerWidth;
             const y = e.clientY / window.innerHeight;
-            
+
             orbs.forEach((orb, index) => {
                 const speed = (index + 1) * 20;
                 orb.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
@@ -1112,4 +1225,5 @@
         });
     </script>
 </body>
+
 </html>
