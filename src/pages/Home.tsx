@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Target, Zap, Square, Crosshair, Trophy } from 'lucide-react';
+import { Target, Zap, Square, Trophy } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 const games = [
