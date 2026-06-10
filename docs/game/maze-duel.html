@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>走迷宫对战 Maze Duel</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e27;--panel:#141836;--accent1:#ff6b6b;--accent2:#4ecdc4;
+  --gold:#ffd93d;--text:#e8e8e8;--dim:#6b7280;--wall:#2d3561;
+  --path:#1a1f4e;--p1:#ff6b6b;--p2:#4ecdc4;
+}
+body{
+  background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+  display:flex;flex-direction:column;align-items:center;min-height:100vh;
+  overflow-x:hidden;
+}
+h1{
+  margin:16px 0 8px;font-size:28px;
+  background:linear-gradient(135deg,var(--p1),var(--gold),var(--p2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:none;letter-spacing:2px;
+}
+.subtitle{font-size:13px;color:var(--dim);margin-bottom:12px}
+.screen{display:none;flex-direction:column;align-items:center;width:100%}
+.screen.active{display:flex}
+.setup-panel{
+  background:var(--panel);border-radius:16px;padding:28px 32px;
+  max-width:480px;width:90%;margin-top:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.setup-panel h2{font-size:20px;margin-bottom:16px;text-align:center}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+.form-group select,.form-group input{
+  width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--wall);
+  background:var(--bg);color:var(--text);font-size:15px;outline:none;
+}
+.form-group select:focus,.form-group input:focus{border-color:var(--accent2)}
+.player-names{display:flex;gap:12px}
+.player-names .form-group{flex:1}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:12px 28px;border:none;border-radius:10px;font-size:16px;
+  font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:1px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--p1),#ff8e53);color:#fff;width:100%;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,107,107,.4)}
+.btn-roll{
+  background:linear-gradient(135deg,var(--gold),#ff8e53);color:#1a1a2e;
+  font-size:18px;padding:14px 36px;
+}
+.btn-roll:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,217,61,.4)}
+.btn-roll:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-sm{padding:8px 16px;font-size:13px;border-radius:8px}
+.btn-outline{background:transparent;border:1px solid var(--wall);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent2);color:var(--accent2)}
+.game-layout{
+  display:flex;gap:16px;align-items:flex-start;justify-content:center;
+  flex-wrap:wrap;padding:8px 16px;width:100%;max-width:1100px;
+}
+.game-board-wrap{
+  position:relative;border-radius:12px;overflow:hidden;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+}
+canvas#mazeCanvas{display:block;background:var(--bg)}
+canvas#particleCanvas{position:absolute;top:0;left:0;pointer-events:none}
+.side-panel{
+  background:var(--panel);border-radius:12px;padding:20px;min-width:220px;
+  max-width:260px;box-shadow:0 4px 24px rgba(0,0,0,.3);
+}
+.player-card{
+  padding:14px;border-radius:10px;margin-bottom:12px;
+  border:2px solid transparent;transition:border-color .3s;
+}
+.player-card.active{border-color:var(--gold);box-shadow:0 0 16px rgba(255,217,61,.15)}
+.player-card.p1{background:rgba(255,107,107,.08)}
+.player-card.p2{background:rgba(78,205,196,.08)}
+.player-card .name{font-weight:700;font-size:15px;margin-bottom:4px}
+.player-card .name.p1c{color:var(--p1)}
+.player-card .name.p2c{color:var(--p2)}
+.player-card .info{font-size:12px;color:var(--dim)}
+.dice-area{
+  text-align:center;margin:16px 0;
+}
+.dice{
+  width:72px;height:72px;margin:0 auto 10px;
+  background:var(--panel);border:2px solid var(--wall);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;font-weight:800;color:var(--gold);
+  transition:transform .1s;
+}
+.dice.rolling{animation:diceRoll .12s infinite alternate}
+@keyframes diceRoll{0%{transform:rotate(-8deg) scale(1.05)}100%{transform:rotate(8deg) scale(.95)}}
+.turn-msg{
+  text-align:center;font-size:14px;color:var(--dim);margin-bottom:8px;
+  min-height:20px;
+}
+.game-log{
+  max-height:160px;overflow-y:auto;font-size:12px;color:var(--dim);
+  margin-top:12px;padding:8px;background:var(--bg);border-radius:8px;
+}
+.game-log p{margin-bottom:4px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.game-log .p1l{color:var(--p1)}.game-log .p2l{color:var(--p2)}
+.dir-buttons{
+  display:grid;grid-template-columns:repeat(3,48px);
+  grid-template-rows:repeat(3,48px);gap:4px;justify-content:center;margin:12px auto;
+}
+.dir-btn{
+  width:48px;height:48px;border:1px solid var(--wall);border-radius:10px;
+  background:var(--panel);color:var(--text);font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.dir-btn:hover:not(:disabled){background:var(--accent2);color:var(--bg);border-color:var(--accent2)}
+.dir-btn:disabled{opacity:.2;cursor:not-allowed}
+.dir-btn.center{background:transparent;border:none;cursor:default;font-size:12px;color:var(--dim)}
+.overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(10,14,39,.85);display:none;align-items:center;
+  justify-content:center;z-index:100;
+}
+.overlay.active{display:flex}
+.win-card{
+  background:var(--panel);border-radius:20px;padding:40px;text-align:center;
+  box-shadow:0 12px 48px rgba(0,0,0,.6);max-width:400px;
+}
+.win-card h2{font-size:28px;margin-bottom:8px}
+.win-card .trophy{font-size:64px;margin-bottom:12px}
+.win-card p{color:var(--dim);margin-bottom:20px}
+.footer-bar{
+  display:flex;gap:8px;margin-top:12px;
+}
+.game-log::-webkit-scrollbar{width:4px}
+.game-log::-webkit-scrollbar-track{background:transparent}
+.game-log::-webkit-scrollbar-thumb{background:var(--wall);border-radius:2px}
+@media(max-width:700px){
+  .game-layout{flex-direction:column;align-items:center}
+  .side-panel{max-width:100%;min-width:auto;width:100%}
+}
+</style>
+</head>
+<body>
+
+<h1>走迷宫对战 Maze Duel</h1>
+<p class="subtitle">掷骰子 · 走迷宫 · 先到终点者胜</p>
+
+<!-- Setup Screen -->
+<div id="setupScreen" class="screen active">
+  <div class="setup-panel">
+    <h2>游戏设置</h2>
+    <div class="player-names">
+      <div class="form-group">
+        <label>玩家 1 (红)</label>
+        <input id="p1Name" value="玩家1" maxlength="8">
+      </div>
+      <div class="form-group">
+        <label>玩家 2 (蓝)</label>
+        <input id="p2Name" value="玩家2" maxlength="8">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>迷宫大小</label>
+      <select id="mazeSize">
+        <option value="8">小 (8×8)</option>
+        <option value="12" selected>中 (12×12)</option>
+        <option value="16">大 (16×16)</option>
+        <option value="20">超大 (20×20)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="startGame()">开始游戏</button>
+  </div>
+</div>
+
+<!-- Game Screen -->
+<div id="gameScreen" class="screen">
+  <div class="game-layout">
+    <div class="game-board-wrap">
+      <canvas id="mazeCanvas"></canvas>
+      <canvas id="particleCanvas"></canvas>
+    </div>
+    <div class="side-panel">
+      <div class="player-card p1" id="card1">
+        <div class="name p1c" id="cardName1">玩家1</div>
+        <div class="info" id="cardInfo1">位置: (0,0)</div>
+      </div>
+      <div class="player-card p2" id="card2">
+        <div class="name p2c" id="cardName2">玩家2</div>
+        <div class="info" id="cardInfo2">位置: (0,0)</div>
+      </div>
+
+      <div class="turn-msg" id="turnMsg">点击骰子开始回合</div>
+      <div class="dice-area">
+        <div class="dice" id="dice">?</div>
+        <button class="btn btn-roll" id="rollBtn" onclick="rollDice()">掷骰子</button>
+      </div>
+
+      <div id="moveControls" style="display:none">
+        <div class="turn-msg" id="moveMsg">选择移动方向</div>
+        <div class="dir-buttons">
+          <div></div>
+          <button class="dir-btn" id="btnN" onclick="movePlayer(0,-1)">&#9650;</button>
+          <div></div>
+          <button class="dir-btn" id="btnW" onclick="movePlayer(-1,0)">&#9664;</button>
+          <div class="dir-btn center">&#9673;</div>
+          <button class="dir-btn" id="btnE" onclick="movePlayer(1,0)">&#9654;</button>
+          <div></div>
+          <button class="dir-btn" id="btnS" onclick="movePlayer(0,1)">&#9660;</button>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="game-log" id="gameLog"></div>
+
+      <div class="footer-bar">
+        <button class="btn btn-sm btn-outline" onclick="restartGame()">重新开始</button>
+        <button class="btn btn-sm btn-outline" onclick="newMaze()">新迷宫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div class="overlay" id="winOverlay">
+  <div class="win-card">
+    <div class="trophy">&#127942;</div>
+    <h2 id="winTitle">恭喜!</h2>
+    <p id="winText">玩家获胜!</p>
+    <button class="btn btn-primary" onclick="newMaze()">再来一局</button>
+  </div>
+</div>
+
+<script>
+const MC = document.getElementById('mazeCanvas');
+const PC = document.getElementById('particleCanvas');
+const ctx = MC.getContext('2d');
+const pctx = PC.getContext('2d');
+
+let maze = [], rows, cols, cellSize;
+let players = [
+  {name:'P1',r:0,c:0,color:'#ff6b6b',steps:0,trail:[]},
+  {name:'P2',r:0,c:0,color:'#4ecdc4',steps:0,trail:[]}
+];
+let current = 0, diceVal = 0, stepsLeft = 0, phase = 'roll';
+let particles = [];
+let exitR, exitC;
+let animFrame;
+
+const WALL = {N:1,E:2,S:4,W:8};
+const DX = {N:0,E:1,S:0,W:-1};
+const DY = {N:-1,E:0,S:1,W:0};
+const OPP = {N:'S',E:'W',S:'N',W:'E'};
+const DIRS = ['N','E','S','W'];
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function genMaze(n){
+  rows=cols=n;
+  const grid=Array.from({length:rows},()=>Array.from({length:cols},()=>({walls:{N:true,E:true,S:true,W:true},visited:false})));
+  const stack=[];
+  let r=0,c=0;
+  grid[r][c].visited=true;
+  stack.push({r,c});
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const nbrs=shuffle([...DIRS]).filter(d=>{
+      const nr=cur.r+DY[d],nc=cur.c+DX[d];
+      return nr>=0&&nr<rows&&nc>=0&&nc<cols&&!grid[nr][nc].visited;
+    });
+    if(!nbrs.length){stack.pop();continue}
+    const d=nbrs[0];
+    const nr=cur.r+DY[d],nc=cur.c+DX[d];
+    grid[cur.r][cur.c].walls[d]=false;
+    grid[nr][nc].walls[OPP[d]]=false;
+    grid[nr][nc].visited=true;
+    stack.push({r:nr,c:nc});
+  }
+  return grid;
+}
+
+function drawMaze(){
+  const w=cols*cellSize,h=rows*cellSize;
+  MC.width=PC.width=w; MC.height=PC.height=h;
+  ctx.clearRect(0,0,w,h);
+
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=c*cellSize,y=r*cellSize;
+    ctx.fillStyle=(r===0&&c===0)?'rgba(255,217,61,.12)':(r===exitR&&c===exitC)?'rgba(78,205,196,.12)':'rgba(26,31,78,.5)';
+    ctx.fillRect(x,y,cellSize,cellSize);
+  }
+
+  ctx.strokeStyle='#4a5082';ctx.lineWidth=2;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=c*cellSize,y=r*cellSize,cell=maze[r][c];
+    if(cell.walls.N){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+cellSize,y);ctx.stroke()}
+    if(cell.walls.E){ctx.beginPath();ctx.moveTo(x+cellSize,y);ctx.lineTo(x+cellSize,y+cellSize);ctx.stroke()}
+    if(cell.walls.S){ctx.beginPath();ctx.moveTo(x,y+cellSize);ctx.lineTo(x+cellSize,y+cellSize);ctx.stroke()}
+    if(cell.walls.W){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+cellSize);ctx.stroke()}
+  }
+
+  // Start & End labels
+  ctx.font=`bold ${cellSize*.4}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#ffd93d';ctx.fillText('S',(0)*cellSize+cellSize/2,(0)*cellSize+cellSize/2);
+  ctx.fillStyle='#4ecdc4';ctx.fillText('E',exitC*cellSize+cellSize/2,exitR*cellSize+cellSize/2);
+
+  drawPlayers();
+}
+
+function drawPlayers(){
+  players.forEach((p,i)=>{
+    const x=p.c*cellSize+cellSize/2,y=p.r*cellSize+cellSize/2;
+    const offset=i===0?-cellSize*.15:cellSize*.15;
+
+    // Trail
+    ctx.globalAlpha=.15;
+    p.trail.forEach(t=>{
+      ctx.beginPath();
+      ctx.arc(t.c*cellSize+cellSize/2+offset,t.r*cellSize+cellSize/2,cellSize*.12,0,Math.PI*2);
+      ctx.fillStyle=p.color;ctx.fill();
+    });
+    ctx.globalAlpha=1;
+
+    // Player circle
+    ctx.beginPath();
+    ctx.arc(x+offset,y,cellSize*.28,0,Math.PI*2);
+    const grad=ctx.createRadialGradient(x+offset,y-cellSize*.08,cellSize*.05,x+offset,y,cellSize*.28);
+    grad.addColorStop(0,'rgba(255,255,255,.3)');grad.addColorStop(1,p.color);
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.5;ctx.stroke();
+
+    // Label
+    ctx.font=`bold ${cellSize*.22}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';ctx.fillText(i===0?'1':'2',x+offset,y);
+  });
+}
+
+function canMove(r,c,dir){
+  if(r<0||r>=rows||c<0||c>=cols)return false;
+  return !maze[r][c].walls[dir];
+}
+
+function getAvailDirs(r,c){
+  return DIRS.filter(d=>canMove(r,c,d));
+}
+
+function updateUI(){
+  const p=players[current];
+  document.getElementById('card1').classList.toggle('active',current===0);
+  document.getElementById('card2').classList.toggle('active',current===1);
+  document.getElementById('cardInfo1').textContent=`位置: (${players[0].r},${players[0].c}) · 步数: ${players[0].steps}`;
+  document.getElementById('cardInfo2').textContent=`位置: (${players[1].r},${players[1].c}) · 步数: ${players[1].steps}`;
+  document.getElementById('rollBtn').disabled = phase !== 'roll';
+  document.getElementById('moveControls').style.display = phase === 'move' ? '' : 'none';
+
+  if(phase==='roll'){
+    document.getElementById('turnMsg').textContent=`${p.name} 的回合 — 点击掷骰子`;
+  }
+}
+
+function updateDirButtons(){
+  const p=players[current];
+  ['N','E','S','W'].forEach(d=>{
+    const btn=document.getElementById('btn'+d);
+    btn.disabled=!canMove(p.r,p.c,d);
+  });
+}
+
+function rollDice(){
+  if(phase!=='roll')return;
+  const diceEl=document.getElementById('dice');
+  diceEl.classList.add('rolling');
+  document.getElementById('rollBtn').disabled=true;
+
+  let ticks=0;
+  const iv=setInterval(()=>{
+    diceEl.textContent=Math.floor(Math.random()*6)+1;
+    ticks++;
+    if(ticks>=12){
+      clearInterval(iv);
+      diceVal=Math.floor(Math.random()*6)+1;
+      diceEl.textContent=diceVal;
+      diceEl.classList.remove('rolling');
+      stepsLeft=diceVal;
+      phase='move';
+      addLog(`${players[current].name} 掷出了 ${diceVal} 点`);
+      document.getElementById('moveMsg').textContent=`剩余步数: ${stepsLeft} — 选择方向`;
+      updateDirButtons();
+      updateUI();
+      autoMoveIfForced();
+    }
+  },60);
+}
+
+function autoMoveIfForced(){
+  const p=players[current];
+  const avail=getAvailDirs(p.r,p.c);
+  if(avail.length===1&&stepsLeft>0){
+    setTimeout(()=>movePlayer(DX[avail[0]],DY[avail[0]]),300);
+  } else if(avail.length===0&&stepsLeft>0){
+    addLog(`${p.name} 无路可走!`);
+    endTurn();
+  }
+}
+
+function movePlayer(dx,dy){
+  if(phase!=='move'||stepsLeft<=0)return;
+  const p=players[current];
+  const dir=dy===-1?'N':dx===1?'E':dy===1?'S':'W';
+
+  if(!canMove(p.r,p.c,dir)){
+    // Hit wall
+    spawnWallParticles(p.c*cellSize+cellSize/2+dx*cellSize/2, p.r*cellSize+cellSize/2+dy*cellSize/2, p.color);
+    addLog(`${p.name} 撞墙了! 回合结束`);
+    stepsLeft=0;
+    endTurn();
+    return;
+  }
+
+  p.trail.push({r:p.r,c:p.c});
+  if(p.trail.length>50)p.trail.shift();
+  p._cameFrom=OPP[dir];
+  p.r+=dy;p.c+=dx;
+  p.steps++;
+  stepsLeft--;
+
+  // Movement particles
+  spawnMoveParticles(p.c*cellSize+cellSize/2, p.r*cellSize+cellSize/2, p.color);
+
+  drawMaze();
+
+  // Check win
+  if(p.r===exitR&&p.c===exitC){
+    phase='done';
+    spawnVictoryParticles(p.c*cellSize+cellSize/2, p.r*cellSize+cellSize/2, p.color);
+    addLog(`🎉 ${p.name} 到达终点! 总步数: ${p.steps}`);
+    setTimeout(()=>showWin(current),800);
+    return;
+  }
+
+  if(stepsLeft>0){
+    document.getElementById('moveMsg').textContent=`剩余步数: ${stepsLeft} — 选择方向`;
+    updateDirButtons();
+    updateUI();
+    setTimeout(()=>autoMoveIfForced(),200);
+  } else {
+    endTurn();
+  }
+}
+
+function endTurn(){
+  phase='roll';
+  current=1-current;
+  players[current]._cameFrom=null;
+  updateUI();
+}
+
+function addLog(msg){
+  const log=document.getElementById('gameLog');
+  const p=document.createElement('p');
+  p.className=current===0?'p1l':'p2l';
+  p.textContent=msg;
+  log.prepend(p);
+  if(log.children.length>50)log.lastChild.remove();
+}
+
+function showWin(idx){
+  const p=players[idx];
+  document.getElementById('winTitle').textContent=`${p.name} 获胜!`;
+  document.getElementById('winTitle').style.color=p.color;
+  document.getElementById('winText').textContent=`共走了 ${p.steps} 步到达终点`;
+  document.getElementById('winOverlay').classList.add('active');
+}
+
+// --- Particles ---
+function spawnMoveParticles(x,y,color){
+  for(let i=0;i<8;i++){
+    particles.push({
+      x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3,
+      life:1,decay:.03+Math.random()*.02,size:2+Math.random()*3,color
+    });
+  }
+}
+function spawnWallParticles(x,y,color){
+  for(let i=0;i<20;i++){
+    particles.push({
+      x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6,
+      life:1,decay:.02+Math.random()*.02,size:2+Math.random()*4,color:'#ff4444',spark:true
+    });
+  }
+}
+function spawnVictoryParticles(x,y,color){
+  for(let i=0;i<60;i++){
+    const angle=Math.random()*Math.PI*2,speed=2+Math.random()*5;
+    particles.push({
+      x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+      life:1,decay:.008+Math.random()*.012,size:3+Math.random()*5,
+      color:['#ffd93d','#ff6b6b','#4ecdc4','#a855f7','#fff'][Math.floor(Math.random()*5)],
+      spark:true
+    });
+  }
+}
+
+function updateParticles(){
+  pctx.clearRect(0,0,PC.width,PC.height);
+  particles=particles.filter(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.life-=p.decay;
+    if(p.life<=0)return false;
+    pctx.globalAlpha=p.life;
+    if(p.spark){
+      pctx.fillStyle=p.color;
+      pctx.beginPath();
+      pctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);
+      pctx.fill();
+    } else {
+      pctx.fillStyle=p.color;
+      pctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size*p.life,p.size*p.life);
+    }
+    pctx.globalAlpha=1;
+    return true;
+  });
+  animFrame=requestAnimationFrame(updateParticles);
+}
+
+// --- Init ---
+function startGame(){
+  const n=parseInt(document.getElementById('mazeSize').value);
+  players[0].name=document.getElementById('p1Name').value||'玩家1';
+  players[1].name=document.getElementById('p2Name').value||'玩家2';
+  document.getElementById('cardName1').textContent=players[0].name;
+  document.getElementById('cardName2').textContent=players[1].name;
+
+  maze=genMaze(n);
+  cellSize=Math.min(Math.floor((Math.min(window.innerWidth-300,600))/n),48);
+  if(cellSize<20)cellSize=20;
+
+  exitR=rows-1;exitC=cols-1;
+  players.forEach(p=>{p.r=0;p.c=0;p.steps=0;p.trail=[];p._cameFrom=null});
+  current=0;phase='roll';diceVal=0;stepsLeft=0;
+  document.getElementById('dice').textContent='?';
+  document.getElementById('gameLog').innerHTML='';
+  document.getElementById('winOverlay').classList.remove('active');
+  document.getElementById('moveControls').style.display='none';
+
+  document.getElementById('setupScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+
+  drawMaze();
+  updateUI();
+  addLog('游戏开始!');
+  if(animFrame)cancelAnimationFrame(animFrame);
+  updateParticles();
+}
+
+function restartGame(){
+  players.forEach(p=>{p.r=0;p.c=0;p.steps=0;p.trail=[];p._cameFrom=null});
+  current=0;phase='roll';diceVal=0;stepsLeft=0;particles=[];
+  document.getElementById('dice').textContent='?';
+  document.getElementById('gameLog').innerHTML='';
+  document.getElementById('winOverlay').classList.remove('active');
+  document.getElementById('moveControls').style.display='none';
+  drawMaze();updateUI();
+  addLog('重新开始!');
+}
+
+function newMaze(){
+  document.getElementById('winOverlay').classList.remove('active');
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('setupScreen').classList.add('active');
+}
+
+// Keyboard support
+document.addEventListener('keydown',e=>{
+  if(phase==='move'){
+    if(e.key==='ArrowUp'||e.key==='w')movePlayer(0,-1);
+    else if(e.key==='ArrowRight'||e.key==='d')movePlayer(1,0);
+    else if(e.key==='ArrowDown'||e.key==='s')movePlayer(0,1);
+    else if(e.key==='ArrowLeft'||e.key==='a')movePlayer(-1,0);
+  } else if(phase==='roll'&&e.key===' '){
+    e.preventDefault();rollDice();
+  }
+});
+</script>
+</body>
+</html>

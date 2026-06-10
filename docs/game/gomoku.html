@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 Gomoku</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: #e0e0e0;
+  padding: 20px;
+  user-select: none;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 4vmin, 2.2rem);
+  margin-bottom: 12px;
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 20px rgba(255, 200, 50, 0.5);
+  color: #ffd700;
+}
+
+.info-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 14px;
+  font-size: clamp(0.9rem, 2.5vmin, 1.1rem);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.current-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s;
+}
+
+.stone-indicator {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+
+.stone-indicator.black {
+  background: radial-gradient(circle at 35% 35%, #666, #111);
+}
+
+.stone-indicator.white {
+  background: radial-gradient(circle at 35% 35%, #fff, #bbb);
+}
+
+.score-board {
+  display: flex;
+  gap: 16px;
+}
+
+.score-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-container {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+canvas {
+  display: block;
+  border-radius: 8px;
+}
+
+canvas#board {
+  box-shadow: 0 10px 40px rgba(0,0,0,0.7), 0 0 80px rgba(220, 179, 92, 0.08);
+  cursor: crosshair;
+  width: min(620px, 92vmin);
+  height: min(620px, 92vmin);
+}
+
+canvas#particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  width: min(620px, 92vmin);
+  height: min(620px, 92vmin);
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+button {
+  padding: 10px 26px;
+  font-size: clamp(0.85rem, 2vmin, 1rem);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #e2b04a, #c9952e);
+  color: #1a1a2e;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(226, 176, 74, 0.3);
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(226, 176, 74, 0.55);
+}
+
+button:active { transform: translateY(0); }
+
+button.secondary {
+  background: linear-gradient(135deg, #4a6fa5, #2e4a7a);
+  color: #e0e0e0;
+  box-shadow: 0 4px 12px rgba(74, 111, 165, 0.3);
+}
+
+button.secondary:hover {
+  box-shadow: 0 6px 18px rgba(74, 111, 165, 0.55);
+}
+
+.winner-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: rgba(10, 10, 30, 0.92);
+  padding: 32px 52px;
+  border-radius: 14px;
+  font-size: clamp(1.4rem, 4vmin, 2.2rem);
+  font-weight: bold;
+  text-align: center;
+  opacity: 0;
+  border: 2px solid #ffd700;
+  box-shadow: 0 0 50px rgba(255, 215, 0, 0.45), inset 0 0 30px rgba(255, 215, 0, 0.05);
+  z-index: 10;
+  pointer-events: none;
+  transition: none;
+}
+
+.winner-banner.show {
+  animation: popIn 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.winner-banner .sub {
+  display: block;
+  font-size: 0.45em;
+  color: #aaa;
+  font-weight: normal;
+  margin-top: 6px;
+  letter-spacing: 0.2em;
+}
+
+@keyframes popIn {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  60%  { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<h1>五子棋 · GOMOKU</h1>
+
+<div class="info-panel">
+  <div class="current-player">
+    <div class="stone-indicator black" id="turnIndicator"></div>
+    <span id="turnText">黑方落子</span>
+  </div>
+  <div class="score-board">
+    <div class="score-item">
+      <div class="stone-indicator black"></div>
+      <span>黑 <b id="blackScore">0</b></span>
+    </div>
+    <div class="score-item">
+      <div class="stone-indicator white"></div>
+      <span>白 <b id="whiteScore">0</b></span>
+    </div>
+  </div>
+</div>
+
+<div class="game-container">
+  <canvas id="board"></canvas>
+  <canvas id="particles"></canvas>
+  <div class="winner-banner" id="winnerBanner"></div>
+</div>
+
+<div class="controls">
+  <button class="secondary" id="undoBtn">悔棋</button>
+  <button id="resetBtn">重新开始</button>
+</div>
+
+<script>
+'use strict';
+
+/* ─── Constants ─────────────────────────────────────────────────────────── */
+const SIZE    = 15;
+const CELL    = 40;
+const PAD     = 30;
+const BOARD_PX = CELL * (SIZE - 1) + PAD * 2;   // 620
+const STONE_R  = CELL * 0.435;
+
+const STAR_POINTS = [
+  [3,3],[3,7],[3,11],
+  [7,3],[7,7],[7,11],
+  [11,3],[11,7],[11,11]
+];
+
+const WIN_COLORS = ['#ffd700','#ff6b6b','#ffa502','#fff','#ffeaa7','#ff4757','#ffdd59'];
+
+/* ─── Canvas setup ──────────────────────────────────────────────────────── */
+const boardCanvas    = document.getElementById('board');
+const particleCanvas = document.getElementById('particles');
+const bctx = boardCanvas.getContext('2d');
+const pctx = particleCanvas.getContext('2d');
+
+boardCanvas.width  = particleCanvas.width  = BOARD_PX;
+boardCanvas.height = particleCanvas.height = BOARD_PX;
+
+/* ─── State ─────────────────────────────────────────────────────────────── */
+let board, currentPlayer, gameOver, winner, winningCells, lastMove, moveHistory;
+let scores  = { black: 0, white: 0 };
+let particles   = [];
+let hoverPos    = null;
+let audioCtx    = null;
+
+/* ─── Init ──────────────────────────────────────────────────────────────── */
+function init() {
+  board         = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+  currentPlayer = 1;            // 1 = black, 2 = white
+  gameOver      = false;
+  winner        = null;
+  winningCells  = [];
+  lastMove      = null;
+  moveHistory   = [];
+  particles     = [];
+  hoverPos      = null;
+  document.getElementById('winnerBanner').classList.remove('show');
+  updateTurnDisplay();
+  drawBoard();
+}
+
+/* ─── UI helpers ────────────────────────────────────────────────────────── */
+function updateTurnDisplay() {
+  const indicator = document.getElementById('turnIndicator');
+  const text      = document.getElementById('turnText');
+  indicator.className = 'stone-indicator ' + (currentPlayer === 1 ? 'black' : 'white');
+  text.textContent    = currentPlayer === 1 ? '黑方落子' : '白方落子';
+}
+
+function updateScores() {
+  document.getElementById('blackScore').textContent = scores.black;
+  document.getElementById('whiteScore').textContent = scores.white;
+}
+
+function showWinner() {
+  const banner = document.getElementById('winnerBanner');
+  if (winner === 'draw') {
+    banner.innerHTML = '平局！<span class="sub">棋逢对手</span>';
+  } else {
+    const name  = winner === 1 ? '黑方' : '白方';
+    const color = winner === 1 ? '#ccc' : '#ffd700';
+    banner.innerHTML =
+      `<span style="color:${color}">${name}</span> 获胜！` +
+      '<span class="sub">五子连珠</span>';
+  }
+  banner.classList.add('show');
+}
+
+/* ─── Drawing ───────────────────────────────────────────────────────────── */
+function drawBoard() {
+  // Wood background
+  const bg = bctx.createLinearGradient(0, 0, BOARD_PX, BOARD_PX);
+  bg.addColorStop(0,   '#d9a840');
+  bg.addColorStop(0.4, '#c8922c');
+  bg.addColorStop(0.7, '#dcb04a');
+  bg.addColorStop(1,   '#c88e28');
+  bctx.fillStyle = bg;
+  bctx.fillRect(0, 0, BOARD_PX, BOARD_PX);
+
+  // Grain texture (drawn once would be better but keeping it simple)
+  bctx.save();
+  for (let i = 0; i < 2500; i++) {
+    const x = Math.random() * BOARD_PX;
+    const y = Math.random() * BOARD_PX;
+    bctx.fillStyle =
+      `rgba(${Math.random() > 0.5 ? 200 : 80},${Math.random() > 0.5 ? 120 : 60},20,${Math.random() * 0.045})`;
+    bctx.fillRect(x, y, 1, 1);
+  }
+  bctx.restore();
+
+  // Grid lines
+  bctx.strokeStyle = 'rgba(60, 38, 8, 0.72)';
+  bctx.lineWidth   = 1;
+  for (let i = 0; i < SIZE; i++) {
+    const p = PAD + i * CELL;
+    bctx.beginPath(); bctx.moveTo(PAD, p); bctx.lineTo(PAD + (SIZE - 1) * CELL, p); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(p, PAD); bctx.lineTo(p, PAD + (SIZE - 1) * CELL); bctx.stroke();
+  }
+
+  // Outer border
+  bctx.strokeStyle = 'rgba(60, 38, 8, 0.9)';
+  bctx.lineWidth   = 2.5;
+  bctx.strokeRect(PAD - 2, PAD - 2, (SIZE - 1) * CELL + 4, (SIZE - 1) * CELL + 4);
+
+  // Star points
+  bctx.fillStyle = 'rgba(60, 38, 8, 0.88)';
+  STAR_POINTS.forEach(([r, c]) => {
+    bctx.beginPath();
+    bctx.arc(PAD + c * CELL, PAD + r * CELL, 4, 0, Math.PI * 2);
+    bctx.fill();
+  });
+
+  // Stones
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (board[r][c] !== 0) drawStone(r, c, board[r][c], false);
+
+  // Winning highlight
+  if (gameOver && winningCells.length) drawWinHighlight();
+
+  // Last-move marker
+  if (lastMove && !gameOver) {
+    const [r, c] = lastMove;
+    bctx.save();
+    bctx.strokeStyle = '#ff6b6b';
+    bctx.lineWidth   = 2;
+    bctx.beginPath();
+    bctx.arc(PAD + c * CELL, PAD + r * CELL, STONE_R * 0.42, 0, Math.PI * 2);
+    bctx.stroke();
+    bctx.restore();
+  }
+
+  // Hover preview
+  if (hoverPos && !gameOver) {
+    const [r, c] = hoverPos;
+    if (board[r][c] === 0) drawStone(r, c, currentPlayer, true);
+  }
+}
+
+function drawStone(r, c, player, isPreview) {
+  const x = PAD + c * CELL;
+  const y = PAD + r * CELL;
+
+  bctx.save();
+  if (isPreview) bctx.globalAlpha = 0.32;
+
+  if (!isPreview) {
+    bctx.shadowColor   = 'rgba(0,0,0,0.45)';
+    bctx.shadowBlur    = 5;
+    bctx.shadowOffsetX = 2;
+    bctx.shadowOffsetY = 2;
+  }
+
+  const grad = bctx.createRadialGradient(
+    x - STONE_R * 0.32, y - STONE_R * 0.32, STONE_R * 0.04,
+    x, y, STONE_R
+  );
+  if (player === 1) {
+    grad.addColorStop(0,   '#5a5a5a');
+    grad.addColorStop(0.6, '#222');
+    grad.addColorStop(1,   '#0a0a0a');
+  } else {
+    grad.addColorStop(0,   '#ffffff');
+    grad.addColorStop(0.6, '#e4e4e4');
+    grad.addColorStop(1,   '#a8a8a8');
+  }
+
+  bctx.fillStyle = grad;
+  bctx.beginPath();
+  bctx.arc(x, y, STONE_R, 0, Math.PI * 2);
+  bctx.fill();
+  bctx.restore();
+}
+
+function drawWinHighlight() {
+  bctx.save();
+
+  // Connecting line
+  if (winningCells.length >= 2) {
+    const [r1, c1] = winningCells[0];
+    const [r2, c2] = winningCells[winningCells.length - 1];
+    bctx.strokeStyle = 'rgba(255, 215, 0, 0.85)';
+    bctx.lineWidth   = 5;
+    bctx.shadowColor = '#ffd700';
+    bctx.shadowBlur  = 18;
+    bctx.beginPath();
+    bctx.moveTo(PAD + c1 * CELL, PAD + r1 * CELL);
+    bctx.lineTo(PAD + c2 * CELL, PAD + r2 * CELL);
+    bctx.stroke();
+  }
+
+  // Rings around winning stones
+  winningCells.forEach(([r, c]) => {
+    bctx.strokeStyle = '#ffd700';
+    bctx.lineWidth   = 3;
+    bctx.shadowColor = '#ffd700';
+    bctx.shadowBlur  = 14;
+    bctx.beginPath();
+    bctx.arc(PAD + c * CELL, PAD + r * CELL, STONE_R + 4, 0, Math.PI * 2);
+    bctx.stroke();
+  });
+
+  bctx.restore();
+}
+
+/* ─── Particle System ───────────────────────────────────────────────────── */
+class Particle {
+  constructor(x, y, vx, vy, color, size, life, gravity = 0.08) {
+    this.x = x;  this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.color  = color;
+    this.size   = size;
+    this.life   = life;
+    this.maxLife = life;
+    this.gravity = gravity;
+  }
+
+  update() {
+    this.x  += this.vx;
+    this.y  += this.vy;
+    this.vy += this.gravity;
+    this.vx *= 0.992;
+    this.life--;
+  }
+
+  draw(ctx) {
+    const t = this.life / this.maxLife;
+    ctx.save();
+    ctx.globalAlpha  = t * 0.88;
+    ctx.fillStyle    = this.color;
+    ctx.shadowColor  = this.color;
+    ctx.shadowBlur   = this.size * 2.5;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * (0.3 + 0.7 * t), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function spawnPlaceParticles(r, c, player) {
+  const x = PAD + c * CELL;
+  const y = PAD + r * CELL;
+  const palette = player === 1
+    ? ['#999','#bbb','#ddd','#777','#eee']
+    : ['#fff','#ffeaa7','#fdcb6e','#f8e7c8','#fff5d6'];
+
+  // Radial burst
+  for (let i = 0; i < 22; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.2 + Math.random() * 3;
+    particles.push(new Particle(
+      x, y,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed,
+      palette[Math.floor(Math.random() * palette.length)],
+      1.5 + Math.random() * 2.5,
+      32 + Math.floor(Math.random() * 18),
+      0.065
+    ));
+  }
+
+  // Ring burst (no gravity)
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2;
+    particles.push(new Particle(
+      x, y,
+      Math.cos(angle) * 2.8,
+      Math.sin(angle) * 2.8,
+      player === 1 ? '#bbb' : '#ffeaa7',
+      2.2, 24, 0
+    ));
+  }
+}
+
+function spawnWinParticles(cells) {
+  let burst = 0;
+  const id = setInterval(() => {
+    cells.forEach(([r, c]) => {
+      const x = PAD + c * CELL;
+      const y = PAD + r * CELL;
+      for (let i = 0; i < 10; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 4.5;
+        particles.push(new Particle(
+          x + (Math.random() - 0.5) * 12,
+          y + (Math.random() - 0.5) * 12,
+          Math.cos(angle) * speed,
+          Math.sin(angle) * speed - 1.2,
+          WIN_COLORS[Math.floor(Math.random() * WIN_COLORS.length)],
+          2 + Math.random() * 3.5,
+          42 + Math.floor(Math.random() * 28),
+          0.13
+        ));
+      }
+    });
+    if (++burst > 9) clearInterval(id);
+  }, 140);
+}
+
+function animateParticles() {
+  pctx.clearRect(0, 0, BOARD_PX, BOARD_PX);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => { p.update(); p.draw(pctx); });
+  requestAnimationFrame(animateParticles);
+}
+
+/* ─── Audio ─────────────────────────────────────────────────────────────── */
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (_) { return null; }
+  }
+  return audioCtx;
+}
+
+function playPlaceSound(player) {
+  const ctx = getAudioCtx(); if (!ctx) return;
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.frequency.value = player === 1 ? 185 : 268;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0.16, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.13);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.13);
+}
+
+function playWinSound() {
+  const ctx = getAudioCtx(); if (!ctx) return;
+  [523, 659, 784, 1047].forEach((freq, i) => {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'triangle';
+    const t0 = ctx.currentTime + i * 0.11;
+    gain.gain.setValueAtTime(0.001, t0);
+    gain.gain.linearRampToValueAtTime(0.13, t0 + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.42);
+    osc.start(t0);
+    osc.stop(t0 + 0.42);
+  });
+}
+
+/* ─── Game logic ────────────────────────────────────────────────────────── */
+function placeStone(r, c) {
+  if (gameOver || board[r][c] !== 0) return;
+
+  board[r][c] = currentPlayer;
+  moveHistory.push({ r, c, player: currentPlayer });
+  lastMove = [r, c];
+
+  spawnPlaceParticles(r, c, currentPlayer);
+  playPlaceSound(currentPlayer);
+
+  const result = checkWin(r, c, currentPlayer);
+  if (result) {
+    winningCells = result;
+    gameOver = true;
+    winner   = currentPlayer;
+    currentPlayer === 1 ? scores.black++ : scores.white++;
+    updateScores();
+    drawBoard();
+    showWinner();
+    spawnWinParticles(result);
+    playWinSound();
+    return;
+  }
+
+  if (moveHistory.length === SIZE * SIZE) {
+    gameOver = true;
+    winner   = 'draw';
+    drawBoard();
+    showWinner();
+    return;
+  }
+
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  updateTurnDisplay();
+  drawBoard();
+}
+
+function checkWin(r, c, player) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr, dc] of dirs) {
+    const cells = [[r, c]];
+    for (let i = 1; i < 5; i++) {
+      const nr = r + dr * i, nc = c + dc * i;
+      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE || board[nr][nc] !== player) break;
+      cells.push([nr, nc]);
+    }
+    for (let i = 1; i < 5; i++) {
+      const nr = r - dr * i, nc = c - dc * i;
+      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE || board[nr][nc] !== player) break;
+      cells.unshift([nr, nc]);
+    }
+    if (cells.length >= 5) return cells.slice(0, 5);
+  }
+  return null;
+}
+
+function undoMove() {
+  if (moveHistory.length === 0 || gameOver) return;
+  const last = moveHistory.pop();
+  board[last.r][last.c] = 0;
+  currentPlayer = last.player;
+  lastMove = moveHistory.length > 0
+    ? [moveHistory[moveHistory.length - 1].r, moveHistory[moveHistory.length - 1].c]
+    : null;
+  updateTurnDisplay();
+  drawBoard();
+}
+
+/* ─── Input ─────────────────────────────────────────────────────────────── */
+function getGridPos(e) {
+  const rect   = boardCanvas.getBoundingClientRect();
+  const scaleX = boardCanvas.width  / rect.width;
+  const scaleY = boardCanvas.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+  const c  = Math.round((mx - PAD) / CELL);
+  const r  = Math.round((my - PAD) / CELL);
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
+  return [r, c];
+}
+
+boardCanvas.addEventListener('click', e => {
+  const pos = getGridPos(e);
+  if (pos) placeStone(pos[0], pos[1]);
+});
+
+boardCanvas.addEventListener('mousemove', e => {
+  const pos = getGridPos(e);
+  if (pos && (!hoverPos || hoverPos[0] !== pos[0] || hoverPos[1] !== pos[1])) {
+    hoverPos = pos;
+    if (!gameOver) drawBoard();
+  } else if (!pos && hoverPos) {
+    hoverPos = null;
+    if (!gameOver) drawBoard();
+  }
+});
+
+boardCanvas.addEventListener('mouseleave', () => {
+  if (hoverPos) { hoverPos = null; if (!gameOver) drawBoard(); }
+});
+
+// Touch support
+boardCanvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  const touch = e.changedTouches[0];
+  const rect   = boardCanvas.getBoundingClientRect();
+  const scaleX = boardCanvas.width  / rect.width;
+  const scaleY = boardCanvas.height / rect.height;
+  const mx = (touch.clientX - rect.left) * scaleX;
+  const my = (touch.clientY - rect.top)  * scaleY;
+  const c  = Math.round((mx - PAD) / CELL);
+  const r  = Math.round((my - PAD) / CELL);
+  if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) placeStone(r, c);
+}, { passive: false });
+
+document.getElementById('undoBtn').addEventListener('click', undoMove);
+document.getElementById('resetBtn').addEventListener('click', init);
+
+/* ─── Boot ──────────────────────────────────────────────────────────────── */
+init();
+animateParticles();
+</script>
+</body>
+</html>

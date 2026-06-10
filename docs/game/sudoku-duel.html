@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数独对战 Sudoku Duel</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 50%, #0c0c1d 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #e0e0e0;
+  overflow-x: hidden;
+}
+
+h1 {
+  margin-top: 20px;
+  font-size: 2em;
+  background: linear-gradient(90deg, #4fc3f7, #e040fb, #ff5252);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  letter-spacing: 4px;
+}
+
+.game-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  margin: 20px;
+  position: relative;
+}
+
+.side-panel {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.player-card {
+  padding: 15px;
+  border-radius: 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 12px;
+  opacity: 0.15;
+  z-index: 0;
+}
+
+.player-card > * { position: relative; z-index: 1; }
+
+.player-a {
+  background: rgba(79, 195, 247, 0.1);
+  border: 2px solid rgba(79, 195, 247, 0.3);
+}
+.player-a.active {
+  border-color: #4fc3f7;
+  box-shadow: 0 0 20px rgba(79, 195, 247, 0.3);
+}
+.player-a::before { background: #4fc3f7; }
+
+.player-b {
+  background: rgba(224, 64, 251, 0.1);
+  border: 2px solid rgba(224, 64, 251, 0.3);
+}
+.player-b.active {
+  border-color: #e040fb;
+  box-shadow: 0 0 20px rgba(224, 64, 251, 0.3);
+}
+.player-b::before { background: #e040fb; }
+
+.player-card h3 { font-size: 1.1em; margin-bottom: 8px; }
+.player-a h3 { color: #4fc3f7; }
+.player-b h3 { color: #e040fb; }
+
+.score { font-size: 2.2em; font-weight: bold; }
+.player-a .score { color: #4fc3f7; }
+.player-b .score { color: #e040fb; }
+
+.board-wrapper {
+  position: relative;
+}
+
+canvas#particleCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, 52px);
+  grid-template-rows: repeat(9, 52px);
+  gap: 1px;
+  background: rgba(255,255,255,0.15);
+  border: 3px solid rgba(255,255,255,0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.cell {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+
+.cell.territory-a { background: rgba(79, 195, 247, 0.08); }
+.cell.territory-b { background: rgba(224, 64, 251, 0.08); }
+.cell.territory-shared { background: rgba(255, 255, 255, 0.04); }
+
+.cell.given {
+  color: rgba(255,255,255,0.85);
+  cursor: default;
+  font-weight: 700;
+}
+
+.cell.filled-a { color: #4fc3f7; }
+.cell.filled-b { color: #e040fb; }
+
+.cell:not(.given):hover {
+  background: rgba(255,255,255,0.15);
+  transform: scale(1.05);
+  z-index: 2;
+}
+
+.cell.selected {
+  background: rgba(255, 235, 59, 0.25) !important;
+  box-shadow: inset 0 0 15px rgba(255, 235, 59, 0.3);
+}
+
+.cell.highlight-row, .cell.highlight-col, .cell.highlight-box {
+  background: rgba(255,255,255,0.06);
+}
+
+.cell.error {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.cell.pop-in {
+  animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Bold borders for 3x3 boxes */
+.cell[data-col="2"], .cell[data-col="5"] {
+  border-right: 2px solid rgba(255,255,255,0.35);
+}
+.cell[data-col="3"], .cell[data-col="6"] {
+  border-left: none;
+}
+.cell[data-row="2"], .cell[data-row="5"] {
+  border-bottom: 2px solid rgba(255,255,255,0.35);
+}
+.cell[data-row="3"], .cell[data-row="6"] {
+  border-top: none;
+}
+
+.number-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 60px);
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.num-btn {
+  width: 60px;
+  height: 60px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 1.5em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.num-btn:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+  transform: scale(1.08);
+}
+
+.num-btn:active {
+  transform: scale(0.95);
+}
+
+.num-btn.erase {
+  font-size: 0.9em;
+  color: #ff5252;
+  border-color: rgba(255, 82, 82, 0.3);
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin: 15px 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #e0e0e0;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.4);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4fc3f7, #2196f3);
+  border-color: #4fc3f7;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 20px rgba(79, 195, 247, 0.4);
+}
+
+.turn-indicator {
+  text-align: center;
+  font-size: 1.1em;
+  margin: 10px 0;
+  padding: 8px 20px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.05);
+}
+
+.legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin: 10px 0;
+  font-size: 0.85em;
+  color: rgba(255,255,255,0.6);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: linear-gradient(135deg, #1a1a3e, #2a2a5e);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.modal h2 {
+  font-size: 1.8em;
+  margin-bottom: 15px;
+  background: linear-gradient(90deg, #4fc3f7, #e040fb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.modal p {
+  margin: 10px 0;
+  font-size: 1.1em;
+  color: rgba(255,255,255,0.8);
+}
+
+.modal .final-score {
+  font-size: 1.4em;
+  margin: 15px 0;
+}
+
+.modal .btn { margin-top: 20px; }
+
+.timer {
+  font-size: 1.5em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+}
+
+.difficulty-selector {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.diff-btn {
+  padding: 6px 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #aaa;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all 0.2s;
+}
+
+.diff-btn.active {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: #4fc3f7;
+  color: #4fc3f7;
+}
+
+.diff-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+@media (max-width: 900px) {
+  .side-panel { width: 160px; }
+  .board { grid-template-columns: repeat(9, 42px); grid-template-rows: repeat(9, 42px); }
+  .cell { width: 42px; height: 42px; font-size: 1.2em; }
+}
+
+@media (max-width: 700px) {
+  .game-container { flex-direction: column; align-items: center; }
+  .side-panel { flex-direction: row; width: auto; }
+  .board { grid-template-columns: repeat(9, 38px); grid-template-rows: repeat(9, 38px); }
+  .cell { width: 38px; height: 38px; font-size: 1.1em; }
+  .number-pad { grid-template-columns: repeat(5, 52px); }
+  .num-btn { width: 52px; height: 52px; }
+}
+</style>
+</head>
+<body>
+
+<h1>数独对战 Sudoku Duel</h1>
+
+<div class="difficulty-selector">
+  <button class="diff-btn active" data-diff="easy">简单</button>
+  <button class="diff-btn" data-diff="medium">中等</button>
+  <button class="diff-btn" data-diff="hard">困难</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-color" style="background:rgba(79,195,247,0.3);"></div>
+    <span>玩家A领地 (+3分)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-color" style="background:rgba(224,64,251,0.3);"></div>
+    <span>玩家B领地 (+3分)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-color" style="background:rgba(255,255,255,0.15);"></div>
+    <span>共享区 (+2分)</span>
+  </div>
+</div>
+
+<div class="game-container">
+  <div class="side-panel">
+    <div class="player-card player-a active" id="cardA">
+      <h3>玩家 A</h3>
+      <div class="score" id="scoreA">0</div>
+      <div style="font-size:0.8em;color:rgba(255,255,255,0.5);margin-top:5px;">已填 <span id="filledA">0</span> 格</div>
+    </div>
+    <div class="timer" id="timer">00:00</div>
+    <div class="player-card player-b" id="cardB">
+      <h3>玩家 B</h3>
+      <div class="score" id="scoreB">0</div>
+      <div style="font-size:0.8em;color:rgba(255,255,255,0.5);margin-top:5px;">已填 <span id="filledB">0</span> 格</div>
+    </div>
+  </div>
+
+  <div class="board-wrapper">
+    <canvas id="particleCanvas"></canvas>
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="side-panel">
+    <div class="turn-indicator" id="turnIndicator">玩家 A 的回合</div>
+    <div class="number-pad" id="numPad"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" onclick="newGame()">新游戏</button>
+  <button class="btn" onclick="undoMove()">撤销</button>
+  <button class="btn" onclick="showHint()">提示</button>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">游戏结束</h2>
+    <p id="modalMsg"></p>
+    <div class="final-score" id="modalScore"></div>
+    <button class="btn btn-primary" onclick="closeModal(); newGame();">再来一局</button>
+  </div>
+</div>
+
+<script>
+// ==================== Sudoku Generator ====================
+class SudokuGenerator {
+  constructor() {
+    this.grid = Array.from({length: 9}, () => Array(9).fill(0));
+  }
+
+  generate() {
+    this.fillGrid(this.grid);
+    return this.grid.map(r => [...r]);
+  }
+
+  fillGrid(grid) {
+    const empty = this.findEmpty(grid);
+    if (!empty) return true;
+    const [r, c] = empty;
+    const nums = this.shuffle([1,2,3,4,5,6,7,8,9]);
+    for (const n of nums) {
+      if (this.isValid(grid, r, c, n)) {
+        grid[r][c] = n;
+        if (this.fillGrid(grid)) return true;
+        grid[r][c] = 0;
+      }
+    }
+    return false;
+  }
+
+  findEmpty(grid) {
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (grid[r][c] === 0) return [r, c];
+    return null;
+  }
+
+  isValid(grid, row, col, num) {
+    for (let i = 0; i < 9; i++) {
+      if (grid[row][i] === num) return false;
+      if (grid[i][col] === num) return false;
+    }
+    const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+    for (let r = br; r < br + 3; r++)
+      for (let c = bc; c < bc + 3; c++)
+        if (grid[r][c] === num) return false;
+    return true;
+  }
+
+  shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  createPuzzle(solution, difficulty) {
+    const puzzle = solution.map(r => [...r]);
+    const removeCounts = { easy: 36, medium: 46, hard: 54 };
+    let toRemove = removeCounts[difficulty] || 40;
+    const positions = this.shuffle(
+      Array.from({length: 81}, (_, i) => [Math.floor(i / 9), i % 9])
+    );
+    let removed = 0;
+    for (const [r, c] of positions) {
+      if (removed >= toRemove) break;
+      const backup = puzzle[r][c];
+      puzzle[r][c] = 0;
+      removed++;
+    }
+    return puzzle;
+  }
+}
+
+// ==================== Particle System ====================
+class ParticleSystem {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.particles = [];
+    this.running = false;
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = rect.width;
+    this.canvas.height = rect.height;
+  }
+
+  emit(x, y, color, count = 20, spread = 1) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = (2 + Math.random() * 4) * spread;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: 0.015 + Math.random() * 0.02,
+        size: 2 + Math.random() * 4,
+        color,
+        gravity: 0.05 + Math.random() * 0.05
+      });
+    }
+    if (!this.running) this.animate();
+  }
+
+  emitTrail(x, y, color, count = 8) {
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 30,
+        y: y + (Math.random() - 0.5) * 30,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1 - Math.random() * 3,
+        life: 1,
+        decay: 0.02 + Math.random() * 0.02,
+        size: 1.5 + Math.random() * 2.5,
+        color,
+        gravity: 0.02
+      });
+    }
+    if (!this.running) this.animate();
+  }
+
+  emitCelebration(x, y) {
+    const colors = ['#4fc3f7', '#e040fb', '#ffeb3b', '#ff5252', '#69f0ae', '#ffd740'];
+    for (let i = 0; i < 60; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 3 + Math.random() * 8;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: 0.008 + Math.random() * 0.012,
+        size: 2 + Math.random() * 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        gravity: 0.08
+      });
+    }
+    if (!this.running) this.animate();
+  }
+
+  animate() {
+    this.running = true;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.particles = this.particles.filter(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.life -= p.decay;
+      if (p.life <= 0) return false;
+      this.ctx.save();
+      this.ctx.globalAlpha = p.life;
+      this.ctx.fillStyle = p.color;
+      this.ctx.shadowColor = p.color;
+      this.ctx.shadowBlur = 8;
+      this.ctx.beginPath();
+      this.ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      return true;
+    });
+    if (this.particles.length > 0) {
+      requestAnimationFrame(() => this.animate());
+    } else {
+      this.running = false;
+    }
+  }
+}
+
+// ==================== Game State ====================
+let solution = [];
+let puzzle = [];
+let board = [];
+let currentPlayer = 'A';
+let scores = { A: 0, B: 0 };
+let filledCount = { A: 0, B: 0 };
+let selectedCell = null;
+let moveHistory = [];
+let difficulty = 'easy';
+let timerInterval = null;
+let seconds = 0;
+let gameOver = false;
+let givenCells = new Set();
+let particles;
+
+// Territory map: which 3x3 box belongs to which player
+// Box layout:
+// 0 1 2
+// 3 4 5
+// 6 7 8
+const territoryMap = {
+  0: 'A', 1: 'A', 2: 'shared',
+  3: 'A', 4: 'shared', 5: 'B',
+  6: 'shared', 7: 'B', 8: 'B'
+};
+
+function getBoxIndex(row, col) {
+  return Math.floor(row / 3) * 3 + Math.floor(col / 3);
+}
+
+function getTerritory(row, col) {
+  return territoryMap[getBoxIndex(row, col)];
+}
+
+// ==================== Game Logic ====================
+function newGame() {
+  const gen = new SudokuGenerator();
+  solution = gen.generate();
+  puzzle = gen.createPuzzle(solution, difficulty);
+  board = puzzle.map(r => [...r]);
+  currentPlayer = 'A';
+  scores = { A: 0, B: 0 };
+  filledCount = { A: 0, B: 0 };
+  selectedCell = null;
+  moveHistory = [];
+  gameOver = false;
+  givenCells = new Set();
+  seconds = 0;
+
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (puzzle[r][c] !== 0) givenCells.add(`${r}-${c}`);
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    seconds++;
+    document.getElementById('timer').textContent = formatTime(seconds);
+  }, 1000);
+
+  renderBoard();
+  requestAnimationFrame(() => particles.resize());
+  updateUI();
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      const territory = getTerritory(r, c);
+      cell.classList.add(`territory-${territory}`);
+
+      if (givenCells.has(`${r}-${c}`)) {
+        cell.classList.add('given');
+        cell.textContent = board[r][c];
+      } else if (board[r][c] !== 0) {
+        cell.textContent = board[r][c];
+        const playerKey = moveHistory.find(m => m.row === r && m.col === c)?.player;
+        if (playerKey) cell.classList.add(`filled-${playerKey.toLowerCase()}`);
+      }
+
+      cell.addEventListener('click', () => onCellClick(r, c));
+      boardEl.appendChild(cell);
+    }
+  }
+  highlightRelated();
+}
+
+function onCellClick(row, col) {
+  if (gameOver) return;
+  if (givenCells.has(`${row}-${col}`)) return;
+
+  selectedCell = { row, col };
+  highlightRelated();
+
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach(c => c.classList.remove('selected'));
+  const idx = row * 9 + col;
+  cells[idx].classList.add('selected');
+}
+
+function highlightRelated() {
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach(c => {
+    c.classList.remove('highlight-row', 'highlight-col', 'highlight-box');
+  });
+  if (!selectedCell) return;
+  const { row, col } = selectedCell;
+  const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+  cells.forEach(c => {
+    const r = +c.dataset.row, cc = +c.dataset.col;
+    if (r === row) c.classList.add('highlight-row');
+    if (cc === col) c.classList.add('highlight-col');
+    if (r >= br && r < br + 3 && cc >= bc && cc < bc + 3) c.classList.add('highlight-box');
+  });
+}
+
+function placeNumber(num) {
+  if (!selectedCell || gameOver) return;
+  const { row, col } = selectedCell;
+  if (givenCells.has(`${row}-${col}`)) return;
+  if (board[row][col] !== 0 && num !== 0) {
+    if (board[row][col] === num) return;
+  }
+
+  if (num === 0) {
+    if (board[row][col] === 0) return;
+    const prevMove = moveHistory.find(m => m.row === row && m.col === col);
+    if (prevMove) {
+      scores[prevMove.player] -= prevMove.points;
+      filledCount[prevMove.player]--;
+      moveHistory = moveHistory.filter(m => !(m.row === row && m.col === col));
+    }
+    board[row][col] = 0;
+    renderBoard();
+    updateUI();
+    return;
+  }
+
+  if (num !== solution[row][col]) {
+    const cells = document.querySelectorAll('.cell');
+    const idx = row * 9 + col;
+    cells[idx].classList.add('error');
+    emitErrorParticles(row, col);
+    setTimeout(() => cells[idx].classList.remove('error'), 400);
+    switchPlayer();
+    return;
+  }
+
+  const prevMove = moveHistory.find(m => m.row === row && m.col === col);
+  if (prevMove) {
+    scores[prevMove.player] -= prevMove.points;
+    filledCount[prevMove.player]--;
+    moveHistory = moveHistory.filter(m => !(m.row === row && m.col === col));
+  }
+
+  board[row][col] = num;
+  const territory = getTerritory(row, col);
+  let points = 2;
+  if (territory === currentPlayer) points = 3;
+  else if (territory !== 'shared') points = 1;
+
+  scores[currentPlayer] += points;
+  filledCount[currentPlayer]++;
+  moveHistory.push({ row, col, player: currentPlayer, num, points });
+
+  renderBoard();
+  emitSuccessParticles(row, col, currentPlayer, territory);
+
+  const cells = document.querySelectorAll('.cell');
+  const idx = row * 9 + col;
+  cells[idx].classList.add('pop-in', `filled-${currentPlayer.toLowerCase()}`);
+
+  updateUI();
+  checkGameEnd();
+  if (!gameOver) switchPlayer();
+}
+
+function switchPlayer() {
+  currentPlayer = currentPlayer === 'A' ? 'B' : 'A';
+  updateUI();
+}
+
+function undoMove() {
+  if (moveHistory.length === 0 || gameOver) return;
+  const last = moveHistory.pop();
+  board[last.row][last.col] = 0;
+  scores[last.player] -= last.points;
+  filledCount[last.player]--;
+  currentPlayer = last.player;
+  selectedCell = null;
+  renderBoard();
+  updateUI();
+}
+
+function showHint() {
+  if (gameOver) return;
+  const emptyCells = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] === 0) emptyCells.push([r, c]);
+
+  if (emptyCells.length === 0) return;
+
+  const territoryCells = emptyCells.filter(([r, c]) => getTerritory(r, c) === currentPlayer);
+  const pool = territoryCells.length > 0 ? territoryCells : emptyCells;
+  const [hr, hc] = pool[Math.floor(Math.random() * pool.length)];
+
+  const cells = document.querySelectorAll('.cell');
+  const idx = hr * 9 + hc;
+  cells[idx].style.transition = 'all 0.3s';
+  cells[idx].style.boxShadow = '0 0 20px rgba(255,235,59,0.6)';
+  cells[idx].style.background = 'rgba(255,235,59,0.2)';
+
+  emitHintParticles(hr, hc);
+
+  setTimeout(() => {
+    cells[idx].style.boxShadow = '';
+    cells[idx].style.background = '';
+  }, 2000);
+
+  scores[currentPlayer] = Math.max(0, scores[currentPlayer] - 2);
+  updateUI();
+}
+
+function checkGameEnd() {
+  let emptyCount = 0;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (board[r][c] === 0) emptyCount++;
+
+  if (emptyCount === 0) {
+    endGame();
+  }
+}
+
+function endGame() {
+  gameOver = true;
+  clearInterval(timerInterval);
+
+  const boardEl = document.getElementById('board');
+  const rect = boardEl.getBoundingClientRect();
+  const wrapperRect = boardEl.parentElement.getBoundingClientRect();
+  const cx = rect.left - wrapperRect.left + rect.width / 2;
+  const cy = rect.top - wrapperRect.top + rect.height / 2;
+
+  let burstCount = 0;
+  const celebInterval = setInterval(() => {
+    particles.emitCelebration(
+      cx + (Math.random() - 0.5) * rect.width * 0.8,
+      cy + (Math.random() - 0.5) * rect.height * 0.8
+    );
+    burstCount++;
+    if (burstCount > 8) clearInterval(celebInterval);
+  }, 200);
+
+  setTimeout(() => {
+    let winner;
+    if (scores.A > scores.B) winner = '玩家 A 获胜！';
+    else if (scores.B > scores.A) winner = '玩家 B 获胜！';
+    else winner = '平局！';
+
+    document.getElementById('modalTitle').textContent = winner;
+    document.getElementById('modalMsg').textContent = `用时 ${formatTime(seconds)}`;
+    document.getElementById('modalScore').innerHTML =
+      `<span style="color:#4fc3f7">A: ${scores.A}分</span> vs <span style="color:#e040fb">B: ${scores.B}分</span>`;
+    document.getElementById('modal').classList.add('show');
+  }, 2000);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+function updateUI() {
+  document.getElementById('scoreA').textContent = scores.A;
+  document.getElementById('scoreB').textContent = scores.B;
+  document.getElementById('filledA').textContent = filledCount.A;
+  document.getElementById('filledB').textContent = filledCount.B;
+
+  document.getElementById('cardA').classList.toggle('active', currentPlayer === 'A');
+  document.getElementById('cardB').classList.toggle('active', currentPlayer === 'B');
+
+  const indicator = document.getElementById('turnIndicator');
+  indicator.textContent = `玩家 ${currentPlayer} 的回合`;
+  indicator.style.borderColor = currentPlayer === 'A' ? '#4fc3f7' : '#e040fb';
+  indicator.style.color = currentPlayer === 'A' ? '#4fc3f7' : '#e040fb';
+}
+
+// ==================== Particle Helpers ====================
+function getCellCenter(row, col) {
+  const boardEl = document.getElementById('board');
+  const wrapperEl = boardEl.parentElement;
+  const wrapperRect = wrapperEl.getBoundingClientRect();
+  const cells = document.querySelectorAll('.cell');
+  const idx = row * 9 + col;
+  const cellRect = cells[idx].getBoundingClientRect();
+  return {
+    x: cellRect.left - wrapperRect.left + cellRect.width / 2,
+    y: cellRect.top - wrapperRect.top + cellRect.height / 2
+  };
+}
+
+function emitSuccessParticles(row, col, player, territory) {
+  const { x, y } = getCellCenter(row, col);
+  const color = player === 'A' ? '#4fc3f7' : '#e040fb';
+  particles.emit(x, y, color, 25, 1.2);
+
+  if (territory === player) {
+    particles.emitTrail(x, y, color, 12);
+  }
+
+  const secondColor = territory === 'shared' ? '#ffeb3b' : (territory === 'A' ? '#4fc3f7' : '#e040fb');
+  particles.emit(x, y, secondColor, 10, 0.6);
+}
+
+function emitErrorParticles(row, col) {
+  const { x, y } = getCellCenter(row, col);
+  particles.emit(x, y, '#ff5252', 15, 0.8);
+}
+
+function emitHintParticles(row, col) {
+  const { x, y } = getCellCenter(row, col);
+  particles.emitTrail(x, y, '#ffeb3b', 15);
+}
+
+// ==================== Number Pad ====================
+function buildNumPad() {
+  const pad = document.getElementById('numPad');
+  pad.innerHTML = '';
+  for (let i = 1; i <= 9; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn';
+    btn.textContent = i;
+    btn.addEventListener('click', () => placeNumber(i));
+    pad.appendChild(btn);
+  }
+  const eraseBtn = document.createElement('button');
+  eraseBtn.className = 'num-btn erase';
+  eraseBtn.textContent = '擦除';
+  eraseBtn.addEventListener('click', () => placeNumber(0));
+  pad.appendChild(eraseBtn);
+}
+
+// ==================== Keyboard Support ====================
+document.addEventListener('keydown', (e) => {
+  if (gameOver) return;
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= 9) {
+    placeNumber(num);
+  } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+    placeNumber(0);
+  } else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    undoMove();
+  } else if (selectedCell) {
+    const { row, col } = selectedCell;
+    let nr = row, nc = col;
+    if (e.key === 'ArrowUp') nr = Math.max(0, row - 1);
+    else if (e.key === 'ArrowDown') nr = Math.min(8, row + 1);
+    else if (e.key === 'ArrowLeft') nc = Math.max(0, col - 1);
+    else if (e.key === 'ArrowRight') nc = Math.min(8, col + 1);
+    else return;
+    e.preventDefault();
+    onCellClick(nr, nc);
+  }
+});
+
+// ==================== Difficulty Selector ====================
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty = btn.dataset.diff;
+    newGame();
+  });
+});
+
+// ==================== Init ====================
+window.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('particleCanvas');
+  particles = new ParticleSystem(canvas);
+  buildNumPad();
+  newGame();
+});
+</script>
+</body>
+</html>

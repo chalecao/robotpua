@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>斗兽棋 Jungle Chess</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #e0e0e0;
+}
+#game-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+#header {
+  text-align: center;
+  margin-bottom: 4px;
+}
+#header h1 {
+  font-size: 28px;
+  background: linear-gradient(90deg, #f7d794, #f8a5c2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  letter-spacing: 6px;
+}
+#status {
+  font-size: 16px;
+  margin-top: 6px;
+  padding: 6px 20px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  display: inline-block;
+  transition: all 0.3s;
+}
+#status.red-turn { color: #ff6b6b; border: 1px solid rgba(255,107,107,0.3); }
+#status.blue-turn { color: #74b9ff; border: 1px solid rgba(116,185,255,0.3); }
+#board-wrapper {
+  position: relative;
+  padding: 16px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+#board {
+  display: grid;
+  grid-template-columns: repeat(7, 64px);
+  grid-template-rows: repeat(9, 64px);
+  gap: 2px;
+  position: relative;
+  z-index: 1;
+}
+#particle-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+.cell {
+  width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  position: relative;
+  cursor: default;
+  transition: all 0.2s;
+  font-size: 14px;
+  user-select: none;
+}
+.cell.land { background: rgba(255,255,255,0.06); }
+.cell.land:hover { background: rgba(255,255,255,0.1); }
+.cell.river {
+  background: linear-gradient(135deg, rgba(41,128,185,0.35), rgba(52,152,219,0.25));
+  border: 1px solid rgba(52,152,219,0.2);
+}
+.cell.river::after {
+  content: '~';
+  position: absolute;
+  font-size: 24px;
+  color: rgba(52,152,219,0.2);
+  animation: wave 3s ease-in-out infinite;
+}
+@keyframes wave {
+  0%, 100% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+}
+.cell.den {
+  background: radial-gradient(circle, rgba(255,215,0,0.15), rgba(255,215,0,0.05));
+  border: 2px solid rgba(255,215,0,0.3);
+}
+.cell.den::before {
+  content: '穴';
+  position: absolute;
+  font-size: 11px;
+  bottom: 2px; right: 4px;
+  color: rgba(255,215,0,0.4);
+}
+.cell.trap {
+  background: radial-gradient(circle, rgba(255,71,87,0.12), rgba(255,71,87,0.04));
+}
+.cell.trap::before {
+  content: '阱';
+  position: absolute;
+  font-size: 10px;
+  bottom: 1px; right: 3px;
+  color: rgba(255,71,87,0.35);
+}
+.cell.highlight {
+  box-shadow: inset 0 0 0 2px rgba(46,213,115,0.6);
+  background: rgba(46,213,115,0.1) !important;
+  cursor: pointer;
+}
+.cell.selected {
+  box-shadow: inset 0 0 0 3px #ffd32a, 0 0 20px rgba(255,211,42,0.3);
+}
+.cell.capture-highlight {
+  box-shadow: inset 0 0 0 2px rgba(255,71,87,0.7);
+  background: rgba(255,71,87,0.15) !important;
+  cursor: pointer;
+}
+.piece {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  z-index: 2;
+  border: 2px solid;
+}
+.piece:hover { transform: scale(1.1); }
+.piece.red {
+  background: linear-gradient(145deg, #c0392b, #e74c3c);
+  border-color: #ff6b6b;
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(231,76,60,0.4);
+}
+.piece.blue {
+  background: linear-gradient(145deg, #2471a3, #3498db);
+  border-color: #74b9ff;
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(52,152,219,0.4);
+}
+.piece .animal-char {
+  font-size: 20px;
+  line-height: 1;
+}
+.piece .animal-rank {
+  font-size: 9px;
+  opacity: 0.8;
+  line-height: 1;
+  margin-top: 1px;
+}
+#controls {
+  display: flex; gap: 12px; margin-top: 4px;
+}
+#controls button {
+  padding: 8px 24px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  color: #e0e0e0;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+#controls button:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.25);
+}
+#win-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+#win-overlay.show { display: flex; }
+#win-box {
+  background: linear-gradient(145deg, #1a1a2e, #16213e);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#win-box h2 {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+#win-box p {
+  font-size: 16px;
+  opacity: 0.7;
+  margin-bottom: 24px;
+}
+#win-box button {
+  padding: 10px 32px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f7d794, #f8a5c2);
+  color: #1a1a2e;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+}
+#legend {
+  font-size: 11px;
+  opacity: 0.5;
+  text-align: center;
+  max-width: 460px;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <div id="header">
+    <h1>斗 兽 棋</h1>
+    <div id="status" class="blue-turn">蓝方先行</div>
+  </div>
+  <div id="board-wrapper">
+    <div id="board"></div>
+    <canvas id="particle-canvas"></canvas>
+  </div>
+  <div id="controls">
+    <button onclick="resetGame()">重新开始</button>
+    <button onclick="undoMove()">悔棋</button>
+  </div>
+  <div id="legend">
+    等级: 象(8) > 狮(7) > 虎(6) > 豹(5) > 犬(4) > 狼(3) > 猫(2) > 鼠(1) &nbsp;|&nbsp; 鼠能吃象 &nbsp;|&nbsp; 狮虎可跳河 &nbsp;|&nbsp; 进入对方兽穴获胜
+  </div>
+</div>
+<div id="win-overlay">
+  <div id="win-box">
+    <h2 id="win-title"></h2>
+    <p id="win-desc"></p>
+    <button onclick="resetGame()">再来一局</button>
+  </div>
+</div>
+
+<script>
+const COLS = 7, ROWS = 9;
+const ANIMALS = {
+  elephant: { name: '象', rank: 8, char: '象' },
+  lion:     { name: '狮', rank: 7, char: '獅' },
+  tiger:    { name: '虎', rank: 6, char: '虎' },
+  leopard:  { name: '豹', rank: 5, char: '豹' },
+  dog:      { name: '犬', rank: 4, char: '犬' },
+  wolf:     { name: '狼', rank: 3, char: '狼' },
+  cat:      { name: '猫', rank: 2, char: '貓' },
+  rat:      { name: '鼠', rank: 1, char: '鼠' },
+};
+
+const RIVER_CELLS = new Set();
+for (let r = 4; r <= 5; r++) {
+  for (let c of [1, 2, 4, 5]) {
+    RIVER_CELLS.add(`${r},${c}`);
+  }
+}
+
+const DENS = { 1: [8, 3], 2: [0, 3] };
+const TRAPS = {
+  1: [[7, 3], [8, 2], [8, 4]],
+  2: [[1, 3], [0, 2], [0, 4]],
+};
+
+const INIT_POSITIONS = {
+  1: [
+    [6, 0, 'rat'], [6, 2, 'cat'], [6, 4, 'wolf'], [6, 6, 'elephant'],
+    [7, 1, 'dog'], [7, 5, 'leopard'],
+    [8, 0, 'tiger'], [8, 6, 'lion'],
+  ],
+  2: [
+    [2, 6, 'rat'], [2, 4, 'cat'], [2, 2, 'wolf'], [2, 0, 'elephant'],
+    [1, 5, 'dog'], [1, 1, 'leopard'],
+    [0, 6, 'tiger'], [0, 0, 'lion'],
+  ],
+};
+
+let board, currentPlayer, selected, validMoves, history, gameOver;
+
+function isRiver(r, c) { return RIVER_CELLS.has(`${r},${c}`); }
+function isDen(r, c, player) {
+  const d = DENS[player];
+  return d[0] === r && d[1] === c;
+}
+function isAnyDen(r, c) { return isDen(r, c, 1) || isDen(r, c, 2); }
+function isTrap(r, c, player) {
+  return TRAPS[player].some(t => t[0] === r && t[1] === c);
+}
+
+function getPieceRank(piece, r, c) {
+  if (!piece) return -1;
+  const opponent = piece.player === 1 ? 2 : 1;
+  if (isTrap(r, c, opponent)) return 0;
+  return ANIMALS[piece.type].rank;
+}
+
+function canCapture(attacker, aR, aC, defender, dR, dC) {
+  const atkRank = getPieceRank(attacker, aR, aC);
+  const defRank = getPieceRank(defender, dR, dC);
+  if (attacker.player === defender.player) return false;
+  if (atkRank === 0 && defRank > 0) return false;
+  if (defRank === 0) return true;
+  if (attacker.type === 'rat' && defender.type === 'elephant') return true;
+  if (attacker.type === 'elephant' && defender.type === 'rat') return false;
+  if (atkRank >= defRank) return true;
+  return false;
+}
+
+function getValidMoves(r, c) {
+  const piece = board[r][c];
+  if (!piece) return [];
+  const moves = [];
+  const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+
+  for (const [dr, dc] of dirs) {
+    const nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+    if (isDen(nr, nc, piece.player)) continue;
+    const target = board[nr][nc];
+
+    if (isRiver(nr, nc)) {
+      if (piece.type === 'rat') {
+        if (!target) { moves.push([nr, nc, false]); }
+        else if (target.player !== piece.player) {
+          if (target.type === 'rat' || canCapture(piece, r, c, target, nr, nc))
+            moves.push([nr, nc, true]);
+        }
+      } else if (piece.type === 'lion' || piece.type === 'tiger') {
+        const jumpR = r + dr * 3, jumpC = c + dc * 3;
+        if (jumpR >= 0 && jumpR < ROWS && jumpC >= 0 && jumpC < COLS && !isRiver(jumpR, jumpC)) {
+          let blocked = false;
+          for (let i = 1; i <= 2; i++) {
+            const mr = r + dr * i, mc = c + dc * i;
+            if (board[mr] && board[mr][mc] && board[mr][mc].type === 'rat') {
+              blocked = true; break;
+            }
+          }
+          if (!blocked) {
+            const jt = board[jumpR][jumpC];
+            if (!jt) { moves.push([jumpR, jumpC, false]); }
+            else if (jt.player !== piece.player && canCapture(piece, r, c, jt, jumpR, jumpC)) {
+              moves.push([jumpR, jumpC, true]);
+            }
+          }
+        }
+      } else {
+        // other animals cannot enter river
+      }
+    } else {
+      if (!target) {
+        moves.push([nr, nc, false]);
+      } else if (target.player !== piece.player) {
+        if (canCapture(piece, r, c, target, nr, nc)) {
+          moves.push([nr, nc, true]);
+        }
+      }
+    }
+  }
+  return moves;
+}
+
+// ---- Particle System ----
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  const wrapper = document.getElementById('board-wrapper');
+  canvas.width = wrapper.offsetWidth;
+  canvas.height = wrapper.offsetHeight;
+}
+
+class Particle {
+  constructor(x, y, color, opts = {}) {
+    this.x = x; this.y = y;
+    this.color = color;
+    this.vx = (Math.random() - 0.5) * (opts.speed || 4);
+    this.vy = (Math.random() - 0.5) * (opts.speed || 4) - (opts.rise || 0);
+    this.life = opts.life || 1;
+    this.decay = opts.decay || (0.01 + Math.random() * 0.02);
+    this.size = opts.size || (2 + Math.random() * 3);
+    this.gravity = opts.gravity || 0.05;
+  }
+  update() {
+    this.x += this.vx;
+    this.vy += this.gravity;
+    this.y += this.vy;
+    this.life -= this.decay;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function cellCenter(r, c) {
+  const boardEl = document.getElementById('board');
+  const cell = boardEl.children[r * COLS + c];
+  if (!cell) return { x: 0, y: 0 };
+  const bRect = document.getElementById('board-wrapper').getBoundingClientRect();
+  const cRect = cell.getBoundingClientRect();
+  return {
+    x: cRect.left - bRect.left + cRect.width / 2,
+    y: cRect.top - bRect.top + cRect.height / 2,
+  };
+}
+
+function emitMoveParticles(r, c, color) {
+  const { x, y } = cellCenter(r, c);
+  for (let i = 0; i < 12; i++) {
+    particles.push(new Particle(x, y, color, { speed: 3, life: 0.7, decay: 0.025, size: 2.5, gravity: 0.02 }));
+  }
+}
+
+function emitCaptureParticles(r, c, color) {
+  const { x, y } = cellCenter(r, c);
+  for (let i = 0; i < 35; i++) {
+    particles.push(new Particle(x, y, color, { speed: 7, life: 1, decay: 0.015, size: 3.5, gravity: 0.08 }));
+  }
+  for (let i = 0; i < 15; i++) {
+    particles.push(new Particle(x, y, '#ffd32a', { speed: 5, life: 0.8, decay: 0.02, size: 2, gravity: 0.04 }));
+  }
+}
+
+function emitVictoryParticles() {
+  const colors = ['#ff6b6b', '#ffd32a', '#74b9ff', '#2ed573', '#f8a5c2', '#a29bfe'];
+  const w = canvas.width, h = canvas.height;
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h * 0.3;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    particles.push(new Particle(x, y, color, {
+      speed: 6, life: 1.5, decay: 0.008, size: 3 + Math.random() * 3, gravity: 0.12, rise: -3
+    }));
+  }
+}
+
+function animateParticles() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.life > 0);
+  for (const p of particles) {
+    p.update();
+    p.draw(ctx);
+  }
+  if (particles.length > 0 || !gameOver) {
+    requestAnimationFrame(animateParticles);
+  }
+}
+
+// ---- Game Logic ----
+function createBoard() {
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  for (const player of [1, 2]) {
+    for (const [r, c, type] of INIT_POSITIONS[player]) {
+      board[r][c] = { player, type };
+    }
+  }
+}
+
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (isRiver(r, c)) {
+        cell.classList.add('river');
+      } else if (isAnyDen(r, c)) {
+        cell.classList.add('den');
+      } else {
+        cell.classList.add('land');
+        if (isTrap(r, c, 1) || isTrap(r, c, 2)) {
+          cell.classList.add('trap');
+        }
+      }
+      if (selected && selected[0] === r && selected[1] === c) {
+        cell.classList.add('selected');
+      }
+      if (validMoves) {
+        const vm = validMoves.find(m => m[0] === r && m[1] === c);
+        if (vm) {
+          cell.classList.add(vm[2] ? 'capture-highlight' : 'highlight');
+        }
+      }
+      const piece = board[r][c];
+      if (piece) {
+        const pieceEl = document.createElement('div');
+        pieceEl.className = `piece ${piece.player === 1 ? 'blue' : 'red'}`;
+        pieceEl.innerHTML = `<span class="animal-char">${ANIMALS[piece.type].char}</span><span class="animal-rank">${ANIMALS[piece.type].rank}</span>`;
+        cell.appendChild(pieceEl);
+      }
+      cell.addEventListener('click', () => onCellClick(r, c));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function onCellClick(r, c) {
+  if (gameOver) return;
+  const piece = board[r][c];
+
+  if (selected) {
+    const move = validMoves ? validMoves.find(m => m[0] === r && m[1] === c) : null;
+    if (move) {
+      executeMove(selected[0], selected[1], r, c, move[2]);
+      return;
+    }
+    if (piece && piece.player === currentPlayer) {
+      selectPiece(r, c);
+      return;
+    }
+    selected = null;
+    validMoves = null;
+    render();
+    return;
+  }
+
+  if (piece && piece.player === currentPlayer) {
+    selectPiece(r, c);
+  }
+}
+
+function selectPiece(r, c) {
+  selected = [r, c];
+  validMoves = getValidMoves(r, c);
+  render();
+}
+
+function executeMove(fromR, fromC, toR, toC, isCapture) {
+  const piece = board[fromR][fromC];
+  const captured = board[toR][toC];
+
+  history.push({
+    from: [fromR, fromC], to: [toR, toC],
+    piece: { ...piece },
+    captured: captured ? { ...captured } : null,
+    player: currentPlayer,
+  });
+
+  const pColor = currentPlayer === 1 ? '#74b9ff' : '#ff6b6b';
+  emitMoveParticles(toR, toC, pColor);
+
+  if (isCapture && captured) {
+    const cColor = captured.player === 1 ? '#74b9ff' : '#ff6b6b';
+    emitCaptureParticles(toR, toC, cColor);
+  }
+
+  board[toR][toC] = piece;
+  board[fromR][fromC] = null;
+  selected = null;
+  validMoves = null;
+
+  const opponent = currentPlayer === 1 ? 2 : 1;
+  if (isDen(toR, toC, opponent)) {
+    gameOver = true;
+    render();
+    showWin(currentPlayer);
+    return;
+  }
+
+  let opponentCanMove = false;
+  for (let rr = 0; rr < ROWS && !opponentCanMove; rr++) {
+    for (let cc = 0; cc < COLS && !opponentCanMove; cc++) {
+      if (board[rr][cc] && board[rr][cc].player === opponent) {
+        if (getValidMoves(rr, cc).length > 0) opponentCanMove = true;
+      }
+    }
+  }
+  if (!opponentCanMove) {
+    gameOver = true;
+    render();
+    showWin(currentPlayer, '对方已无可用棋子！');
+    return;
+  }
+
+  currentPlayer = opponent;
+  updateStatus();
+  render();
+}
+
+function undoMove() {
+  if (history.length === 0 || gameOver) return;
+  const last = history.pop();
+  board[last.from[0]][last.from[1]] = last.piece;
+  board[last.to[0]][last.to[1]] = last.captured;
+  currentPlayer = last.player;
+  selected = null;
+  validMoves = null;
+  updateStatus();
+  render();
+}
+
+function updateStatus() {
+  const el = document.getElementById('status');
+  el.className = currentPlayer === 1 ? 'blue-turn' : 'red-turn';
+  el.textContent = currentPlayer === 1 ? '蓝方走棋' : '红方走棋';
+}
+
+function showWin(player, reason) {
+  const overlay = document.getElementById('win-overlay');
+  const title = document.getElementById('win-title');
+  const desc = document.getElementById('win-desc');
+  const name = player === 1 ? '蓝方' : '红方';
+  const color = player === 1 ? '#74b9ff' : '#ff6b6b';
+  title.innerHTML = `<span style="color:${color}">${name}</span> 获胜！`;
+  desc.textContent = reason || '成功攻入对方兽穴！';
+  overlay.classList.add('show');
+  emitVictoryParticles();
+  setTimeout(emitVictoryParticles, 600);
+  setTimeout(emitVictoryParticles, 1200);
+}
+
+function resetGame() {
+  document.getElementById('win-overlay').classList.remove('show');
+  createBoard();
+  currentPlayer = 1;
+  selected = null;
+  validMoves = null;
+  history = [];
+  gameOver = false;
+  particles = [];
+  updateStatus();
+  render();
+  resizeCanvas();
+  requestAnimationFrame(animateParticles);
+}
+
+// ---- Init ----
+window.addEventListener('resize', resizeCanvas);
+resetGame();
+</script>
+</body>
+</html>

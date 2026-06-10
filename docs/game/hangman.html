@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hangman - 猜字游戏</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+h1 {
+  text-align: center;
+  font-size: 2.4rem;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #f7971e, #ffd200);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #888;
+  margin-bottom: 28px;
+}
+
+/* Screens */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* Setup screen */
+.setup-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 36px 32px;
+  text-align: center;
+}
+
+.setup-box label {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  color: #ccc;
+}
+
+.setup-box input {
+  width: 280px;
+  padding: 12px 16px;
+  font-size: 1.3rem;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
+  text-align: center;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.setup-box input:focus {
+  border-color: #ffd200;
+}
+
+.setup-box .hint {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.btn {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 12px 40px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f7971e, #ffd200);
+  color: #1a1a2e;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+
+.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,210,0,0.3); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.error-msg {
+  color: #ff6b6b;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+
+/* Game screen */
+.game-top {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.hangman-canvas {
+  background: rgba(255,255,255,0.04);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.game-info {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.status-bar {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
+
+.status-bar span {
+  background: rgba(255,255,255,0.07);
+  padding: 8px 18px;
+  border-radius: 8px;
+}
+
+.status-bar .errors { color: #ff6b6b; }
+.status-bar .remaining { color: #51cf66; }
+
+/* Word display */
+.word-display {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0 28px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.letter-slot {
+  width: 48px;
+  height: 58px;
+  border-bottom: 3px solid rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: border-color 0.3s, transform 0.3s;
+}
+
+.letter-slot.revealed {
+  border-color: #51cf66;
+  color: #51cf66;
+  animation: popIn 0.35s ease;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Keyboard */
+.keyboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.key-btn {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.07);
+  color: #e0e0e0;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.key-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.15);
+  transform: translateY(-1px);
+}
+
+.key-btn:disabled { cursor: not-allowed; opacity: 0.3; }
+.key-btn.correct { background: rgba(81,207,102,0.25); border-color: #51cf66; color: #51cf66; }
+.key-btn.wrong { background: rgba(255,107,107,0.2); border-color: #ff6b6b; color: #ff6b6b; }
+
+/* Result overlay */
+.result-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.result-overlay.active { display: flex; }
+
+.result-card {
+  background: linear-gradient(145deg, #1e1e3a, #2a2a50);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 44px 52px;
+  text-align: center;
+  animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.result-card .emoji { font-size: 4rem; margin-bottom: 12px; }
+.result-card h2 { font-size: 1.8rem; margin-bottom: 8px; }
+.result-card .answer { font-size: 1.1rem; color: #aaa; margin-bottom: 24px; }
+.result-card h2.win { color: #51cf66; }
+.result-card h2.lose { color: #ff6b6b; }
+
+/* Particle canvas */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+
+<div id="app">
+  <h1>Hangman</h1>
+  <p class="subtitle">猜字游戏 - 双人对战</p>
+
+  <!-- Setup Screen -->
+  <div id="setup-screen" class="screen active">
+    <div class="setup-box">
+      <label for="word-input">玩家 A 请输入一个英文单词 (4-8 个字母)：</label>
+      <input type="text" id="word-input" maxlength="8" placeholder="WORD" autocomplete="off" />
+      <p class="hint">输入后请让玩家 B 来猜！</p>
+      <p class="error-msg" id="setup-error"></p>
+      <br>
+      <button class="btn" id="start-btn">开始游戏</button>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="screen">
+    <div class="game-top">
+      <canvas class="hangman-canvas" id="hangman-canvas" width="240" height="260"></canvas>
+      <div class="game-info">
+        <div class="status-bar">
+          <span class="errors">错误: <strong id="error-count">0</strong>/6</span>
+          <span class="remaining">剩余字母: <strong id="remaining-count">0</strong></span>
+        </div>
+        <div class="word-display" id="word-display"></div>
+      </div>
+    </div>
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="emoji" id="result-emoji"></div>
+    <h2 id="result-title"></h2>
+    <p class="answer" id="result-answer"></p>
+    <button class="btn" id="replay-btn">再来一局</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Particle System ──
+  const pCanvas = document.getElementById('particle-canvas');
+  const pCtx = pCanvas.getContext('2d');
+  let particles = [];
+
+  function resizeParticleCanvas() {
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeParticleCanvas);
+  resizeParticleCanvas();
+
+  class Particle {
+    constructor(x, y, color, opts = {}) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.size = opts.size || (Math.random() * 4 + 2);
+      const speed = opts.speed || (Math.random() * 4 + 2);
+      const angle = opts.angle != null ? opts.angle : Math.random() * Math.PI * 2;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+      this.gravity = opts.gravity || 0.06;
+      this.life = opts.life || 1;
+      this.decay = opts.decay || (Math.random() * 0.02 + 0.01);
+      this.shape = opts.shape || 'circle';
+    }
+    update() {
+      this.vy += this.gravity;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.life -= this.decay;
+    }
+    draw(ctx) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(this.life, 0);
+      ctx.fillStyle = this.color;
+      if (this.shape === 'star') {
+        drawStar(ctx, this.x, this.y, 5, this.size, this.size * 0.4);
+      } else {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+    let rot = Math.PI / 2 * 3, step = Math.PI / spikes;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerR);
+    for (let i = 0; i < spikes; i++) {
+      ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+      rot += step;
+      ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+      rot += step;
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function spawnParticles(x, y, colors, count, opts) {
+    for (let i = 0; i < count; i++) {
+      particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)], opts));
+    }
+  }
+
+  function emitCorrect(el) {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    spawnParticles(cx, cy, ['#51cf66','#69db7c','#a9e34b','#ffd200'], 18, { speed: 3, gravity: 0.04, decay: 0.018, shape: 'star', size: 4 });
+  }
+
+  function emitWrong(x, y) {
+    spawnParticles(x, y, ['#ff6b6b','#e03131','#ff8787','#c92a2a'], 25, { speed: 5, gravity: 0.08, decay: 0.02 });
+  }
+
+  function emitWin() {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    for (let i = 0; i < 120; i++) {
+      const colors = ['#ffd200','#51cf66','#339af0','#f7971e','#e599f7','#ff6b6b'];
+      particles.push(new Particle(cx, cy, colors[Math.floor(Math.random() * colors.length)], {
+        speed: Math.random() * 8 + 3,
+        gravity: 0.05,
+        decay: 0.008,
+        size: Math.random() * 5 + 2,
+        shape: Math.random() > 0.5 ? 'star' : 'circle'
+      }));
+    }
+  }
+
+  function emitLose() {
+    const cx = window.innerWidth / 2, cy = window.innerHeight * 0.35;
+    for (let i = 0; i < 60; i++) {
+      particles.push(new Particle(cx + (Math.random()-0.5)*200, cy, ['#ff6b6b','#868e96','#495057','#e03131'][Math.floor(Math.random()*4)], {
+        speed: Math.random() * 2 + 0.5,
+        angle: Math.PI * 0.5 + (Math.random()-0.5)*1.2,
+        gravity: 0.1,
+        decay: 0.006,
+        size: Math.random() * 3 + 1
+      }));
+    }
+  }
+
+  function animateParticles() {
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => { p.update(); p.draw(pCtx); });
+    requestAnimationFrame(animateParticles);
+  }
+  animateParticles();
+
+  // ── Hangman Drawing ──
+  const hCanvas = document.getElementById('hangman-canvas');
+  const hCtx = hCanvas.getContext('2d');
+
+  const hangmanParts = [
+    // head
+    () => { hCtx.beginPath(); hCtx.arc(160, 70, 22, 0, Math.PI*2); hCtx.stroke(); },
+    // body
+    () => { hCtx.beginPath(); hCtx.moveTo(160, 92); hCtx.lineTo(160, 160); hCtx.stroke(); },
+    // left arm
+    () => { hCtx.beginPath(); hCtx.moveTo(160, 115); hCtx.lineTo(125, 145); hCtx.stroke(); },
+    // right arm
+    () => { hCtx.beginPath(); hCtx.moveTo(160, 115); hCtx.lineTo(195, 145); hCtx.stroke(); },
+    // left leg
+    () => { hCtx.beginPath(); hCtx.moveTo(160, 160); hCtx.lineTo(130, 205); hCtx.stroke(); },
+    // right leg
+    () => { hCtx.beginPath(); hCtx.moveTo(160, 160); hCtx.lineTo(170, 205); hCtx.stroke(); },
+  ];
+
+  function drawGallows() {
+    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+    hCtx.strokeStyle = 'rgba(255,255,255,0.25)';
+    hCtx.lineWidth = 3;
+    hCtx.lineCap = 'round';
+    // base
+    hCtx.beginPath(); hCtx.moveTo(30, 230); hCtx.lineTo(130, 230); hCtx.stroke();
+    // pole
+    hCtx.beginPath(); hCtx.moveTo(80, 230); hCtx.lineTo(80, 25); hCtx.stroke();
+    // top
+    hCtx.beginPath(); hCtx.moveTo(80, 25); hCtx.lineTo(160, 25); hCtx.stroke();
+    // rope
+    hCtx.beginPath(); hCtx.moveTo(160, 25); hCtx.lineTo(160, 48); hCtx.stroke();
+  }
+
+  function drawHangman(errors) {
+    drawGallows();
+    hCtx.strokeStyle = '#ff6b6b';
+    hCtx.lineWidth = 3;
+    for (let i = 0; i < errors && i < hangmanParts.length; i++) {
+      hangmanParts[i]();
+    }
+  }
+
+  // ── Game Logic ──
+  let secretWord = '';
+  let guessed = new Set();
+  let errors = 0;
+  const MAX_ERRORS = 6;
+
+  const setupScreen = document.getElementById('setup-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const wordInput = document.getElementById('word-input');
+  const setupError = document.getElementById('setup-error');
+  const startBtn = document.getElementById('start-btn');
+  const wordDisplay = document.getElementById('word-display');
+  const keyboard = document.getElementById('keyboard');
+  const errorCount = document.getElementById('error-count');
+  const remainingCount = document.getElementById('remaining-count');
+  const resultOverlay = document.getElementById('result-overlay');
+  const resultEmoji = document.getElementById('result-emoji');
+  const resultTitle = document.getElementById('result-title');
+  const resultAnswer = document.getElementById('result-answer');
+  const replayBtn = document.getElementById('replay-btn');
+
+  function showScreen(screen) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    screen.classList.add('active');
+  }
+
+  function validateWord(w) {
+    if (!/^[a-zA-Z]+$/.test(w)) return '只能包含英文字母';
+    if (w.length < 4) return '至少需要 4 个字母';
+    if (w.length > 8) return '最多 8 个字母';
+    return '';
+  }
+
+  startBtn.addEventListener('click', () => {
+    const word = wordInput.value.trim().toUpperCase();
+    const err = validateWord(word);
+    if (err) { setupError.textContent = err; return; }
+    setupError.textContent = '';
+    secretWord = word;
+    guessed = new Set();
+    errors = 0;
+    initGame();
+    showScreen(gameScreen);
+  });
+
+  wordInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') startBtn.click();
+  });
+
+  function initGame() {
+    drawHangman(0);
+    errorCount.textContent = '0';
+    remainingCount.textContent = secretWord.length;
+
+    wordDisplay.innerHTML = '';
+    for (const ch of secretWord) {
+      const slot = document.createElement('div');
+      slot.className = 'letter-slot';
+      slot.dataset.letter = ch;
+      wordDisplay.appendChild(slot);
+    }
+
+    keyboard.innerHTML = '';
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i);
+      const btn = document.createElement('button');
+      btn.className = 'key-btn';
+      btn.textContent = letter;
+      btn.addEventListener('click', () => guess(letter, btn));
+      keyboard.appendChild(btn);
+    }
+  }
+
+  function guess(letter, btn) {
+    if (guessed.has(letter) || errors >= MAX_ERRORS) return;
+    guessed.add(letter);
+    btn.disabled = true;
+
+    if (secretWord.includes(letter)) {
+      btn.classList.add('correct');
+      const slots = wordDisplay.querySelectorAll(`.letter-slot[data-letter="${letter}"]`);
+      let revealed = 0;
+      slots.forEach((slot, i) => {
+        setTimeout(() => {
+          slot.textContent = letter;
+          slot.classList.add('revealed');
+          emitCorrect(slot);
+        }, i * 100);
+        revealed++;
+      });
+      let totalRevealed = 0;
+      wordDisplay.querySelectorAll('.letter-slot.revealed, .letter-slot').forEach(s => {
+        if (s.textContent) totalRevealed++;
+      });
+      setTimeout(() => {
+        let rem = 0;
+        wordDisplay.querySelectorAll('.letter-slot').forEach(s => { if (!s.textContent) rem++; });
+        remainingCount.textContent = rem;
+        if (rem === 0) endGame(true);
+      }, slots.length * 100 + 50);
+    } else {
+      btn.classList.add('wrong');
+      errors++;
+      errorCount.textContent = errors;
+      drawHangman(errors);
+      const r = hCanvas.getBoundingClientRect();
+      emitWrong(r.left + r.width / 2, r.top + r.height * 0.3);
+      if (errors >= MAX_ERRORS) {
+        setTimeout(() => endGame(false), 400);
+      }
+    }
+  }
+
+  function endGame(won) {
+    document.querySelectorAll('.key-btn').forEach(b => b.disabled = true);
+    if (won) {
+      resultEmoji.textContent = '🎉';
+      resultTitle.textContent = '玩家 B 赢了！';
+      resultTitle.className = 'win';
+      resultAnswer.textContent = `答案: ${secretWord}`;
+      emitWin();
+      setTimeout(emitWin, 600);
+    } else {
+      // reveal the word
+      wordDisplay.querySelectorAll('.letter-slot').forEach(s => {
+        if (!s.textContent) { s.textContent = s.dataset.letter; s.style.color = '#ff6b6b'; }
+      });
+      resultEmoji.textContent = '💀';
+      resultTitle.textContent = '玩家 A 赢了！';
+      resultTitle.className = 'lose';
+      resultAnswer.textContent = `答案: ${secretWord}`;
+      emitLose();
+    }
+    setTimeout(() => resultOverlay.classList.add('active'), won ? 300 : 800);
+  }
+
+  replayBtn.addEventListener('click', () => {
+    resultOverlay.classList.remove('active');
+    wordInput.value = '';
+    showScreen(setupScreen);
+    wordInput.focus();
+  });
+
+  // Physical keyboard support
+  document.addEventListener('keydown', e => {
+    if (!gameScreen.classList.contains('active')) return;
+    if (resultOverlay.classList.contains('active')) return;
+    const key = e.key.toUpperCase();
+    if (/^[A-Z]$/.test(key)) {
+      const btn = [...keyboard.querySelectorAll('.key-btn')].find(b => b.textContent === key && !b.disabled);
+      if (btn) btn.click();
+    }
+  });
+})();
+</script>
+</body>
+</html>

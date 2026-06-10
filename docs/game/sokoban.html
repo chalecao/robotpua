@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>推箱子 Sokoban</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+#hdr{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#1e293b;border-bottom:1px solid #334155;flex-wrap:wrap}
+#hdr h1{font-size:17px;margin-right:auto;background:linear-gradient(135deg,#22c55e,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.b{background:#334155;color:#e2e8f0;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:background .15s}
+.b:hover{background:#475569}
+.b:active{background:#1e293b}
+.bp{background:#3b82f6}.bp:hover{background:#2563eb}
+.bg{background:#22c55e}.bg:hover{background:#16a34a}
+#info{display:flex;gap:14px;padding:4px 14px;font-size:12px;background:#1e293b80;color:#94a3b8}
+#info span b{color:#e2e8f0}
+#cw{flex:1;position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#turn{position:absolute;top:10px;left:50%;transform:translateX(-50%);padding:4px 16px;border-radius:18px;font-size:13px;font-weight:600;pointer-events:none;transition:all .3s;opacity:0}
+#turn.s{opacity:1}
+.t1{background:#22c55e30;border:1px solid #22c55e80;color:#22c55e}
+.t2{background:#3b82f630;border:1px solid #3b82f680;color:#3b82f6}
+.ov{position:absolute;inset:0;background:#0f172ae8;display:flex;align-items:center;justify-content:center;z-index:10}
+.ov.h{display:none}
+.mb{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px;max-width:400px;width:92%;text-align:center}
+.mb h2{font-size:20px;margin-bottom:12px}
+.mb p{color:#94a3b8;margin-bottom:14px;font-size:13px;line-height:1.6}
+.lg{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}
+.lb{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#334155;border:2px solid transparent;border-radius:8px;cursor:pointer;font-size:18px;font-weight:700;transition:all .2s}
+.lb:hover{border-color:#3b82f6;transform:scale(1.06)}
+.lb.dn{background:#22c55e20;border-color:#22c55e50}
+.lb small{font-size:9px;color:#94a3b8;margin-top:2px}
+.mr{display:flex;gap:8px;justify-content:center;margin:14px 0}
+.mr .b{padding:8px 18px;font-size:13px}
+#dp{position:absolute;bottom:20px;right:20px;display:none;gap:4px;z-index:5}
+.db{width:48px;height:48px;background:#33415580;border:1px solid #475569;border-radius:10px;color:#e2e8f0;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.db:active{background:#47556980}
+@media(pointer:coarse){#dp{display:grid;grid-template-areas:". u ." "l . r" ". d ."}}
+.kh{font-size:11px;color:#64748b;margin-top:10px}
+.kh kbd{background:#334155;padding:1px 5px;border-radius:3px;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="hdr">
+<h1>推箱子 Sokoban</h1>
+<button class="b" id="bLv">选关</button>
+<button class="b" id="bRs">重来</button>
+<button class="b" id="bUn">撤销</button>
+<button class="b bp" id="bMd">单人</button>
+</div>
+<div id="info">
+<span>关卡 <b id="iLv">1</b>/8</span>
+<span>步数 <b id="iMv">0</b></span>
+<span>推动 <b id="iPsh">0</b></span>
+<span>时间 <b id="iTm">00:00</b></span>
+</div>
+<div id="cw">
+<canvas id="c"></canvas>
+<div id="turn"></div>
+<div class="ov" id="ovL">
+<div class="mb">
+<h2>推箱子 Sokoban</h2>
+<p>把所有箱子推到金色目标点上<br>只能推不能拉，需要策略规划</p>
+<div class="mr">
+<button class="b bp" id="m1">单人模式</button>
+<button class="b bg" id="m2">双人合作</button>
+</div>
+<button class="b bp" style="width:100%;padding:10px" id="go">开始游戏</button>
+<div class="kh"><kbd>WASD</kbd> / <kbd>方向键</kbd> 移动 · <kbd>Z</kbd> 撤销 · <kbd>R</kbd> 重来</div>
+</div>
+</div>
+<div class="ov h" id="ovW">
+<div class="mb">
+<h2 id="wT">过关!</h2>
+<p id="wS"></p>
+<div class="mr">
+<button class="b" id="wR">重来</button>
+<button class="b bp" id="wN">下一关</button>
+</div>
+</div>
+</div>
+</div>
+<div id="dp">
+<div style="grid-area:u"></div>
+<button class="db" data-d="0,-1" style="grid-area:u">↑</button>
+<button class="db" data-d="-1,0" style="grid-area:l">←</button>
+<button class="db" data-d="1,0" style="grid-area:r">→</button>
+<button class="db" data-d="0,1" style="grid-area:d">↓</button>
+</div>
+<script>
+(function(){
+const LV=[
+{n:"初识",d:"推动箱子到目标点",r:[
+"  ###  ","  #.#  ","  #   #","###$  #","#.$ $.#","#.@ $.#","##### #","    ###"]},
+{n:"入门",d:"两个箱子，两个目标",r:[
+"######  ","#    #  ","# #  ## ","# #. .#","#  $$ #","#  @  #","#######"]},
+{n:"小试",d:"三个箱子，注意走位",r:[
+"  ####  ","###  ###","#   .  #","# #.#$ #","#  $ $.#","#  @ ###","######"]},
+{n:"进阶",d:"需要迂回策略",r:[
+"  #####  "," ##   ## ","## #.# ##","#   #   #","# #.#$$ #","#   .@  #","##  .   #"," ##   ###","  #####"]},
+{n:"挑战",d:"四箱归位",r:[
+"  ######"," ##    #","## ## # #","#  #. #$#","# $ .#  #","# #.# $ #","#   @   #","#########"]},
+{n:"迷宫",d:"通道狭窄，步步为营",r:[
+"  #####"," ##.  #"," # .# #","## #  #","#  $  #","# $$###","#.$ #  ","#  @   ","########"]},
+{n:"高手",d:"五箱混战",r:[
+"  #######"," ##  #  #"," #  ... #","## #$## #","#  $ $  #","# #$# # #","#  .  @ #","#########"]},
+{n:"大师",d:"六箱终极挑战",r:[
+"  ########"," ## # #  #"," #  ...# #","## #$#   #","#  $ $#  #","# #$#.#  #","#  . . @ #","##########"]}
+];
+const CL={bg:'#0f172a',wall:'#334155',wt:'#475569',fl:'#1e293b',tg:'#fbbf24',tg2:'#f59e0b',
+bx:'#a16207',bx2:'#ca8a04',bxD:'#78350f',bxG:'#16a34a',bxG2:'#22c55e',
+p1:'#22c55e',p1l:'#4ade80',p2:'#3b82f6',p2l:'#60a5fa'};
+let md='single',cl=0,done=new Set(),grid=[],gW,gH,tgts=[],pls=[],bxs,bxOn,
+hist=[],mvs=0,psh=0,t0=null,over=false,af=1,
+parts=[],floats=[],cW,cH,tS,oX,oY,hov=null,camX=0,camY=0,
+aId=null,aS=0,aD=150,aPl=-1,aBx=-1,aPD=null,aBP=null;
+const cv=document.getElementById('c'),cx=cv.getContext('2d'),
+cw=document.getElementById('cw'),
+$=id=>document.getElementById(id),
+iLv=$('iLv'),iMv=$('iMv'),iPsh=$('iPsh'),iTm=$('iTm'),
+turn=$('turn'),ovL=$('ovL'),ovW=$('ovW'),wT=$('wT'),wS=$('wS');
+function rsz(){const r=cw.getBoundingClientRect(),dp=devicePixelRatio||1;
+cv.width=r.width*dp;cv.height=r.height*dp;
+cv.style.width=r.width+'px';cv.style.height=r.height+'px';
+cx.setTransform(dp,0,0,dp,0,0);cW=r.width;cH=r.height;calcCam()}
+function calcCam(){if(!gW)return;const mw=cW*.92,mh=cH*.85;
+tS=Math.min(mw/gW,mh/gH,64);tS=Math.max(tS,22);
+oX=(cW-gW*tS)/2;oY=(cH-gH*tS)/2}
+function loadLv(i){cl=i;const lv=LV[i];grid=[];tgts=[];pls=[];bxs=[];gH=lv.r.length;gW=0;
+for(let y=0;y<gH;y++){grid[y]=[];gW=Math.max(gW,lv.r[y].length);
+for(let x=0;x<lv.r[y].length;x++){const c=lv.r[y][x];
+if(c==='#')grid[y][x]=1;else if(c==='.'){grid[y][x]=0;tgts.push({x,y})}
+else if(c==='$'){grid[y][x]=0;bxs.push({x,y})}
+else if(c==='@'){grid[y][x]=0;pls.push({x,y,id:0})}
+else if(c==='*'){grid[y][x]=0;tgts.push({x,y});bxs.push({x,y})}
+else if(c==='+'){grid[y][x]=0;tgts.push({x,y});pls.push({x,y,id:0})}
+else grid[y][x]=0}
+for(let y=0;y<gH;y++)while(grid[y].length<gW)grid[y].push(0)}
+if(md==='dual'&&pls.length>=1){let bp=null,md2=1e9;
+for(let y=0;y<gH;y++)for(let x=0;x<gW;x++){if(grid[y][x]===0&&!bxs.some(b=>b.x===x&&b.y===y)&&!pls.some(p=>p.x===x&&p.y===y)){
+const d=Math.abs(x-pls[0].x)+Math.abs(y-pls[0].y);
+if(d>=3&&d<md2){md2=d;bp={x,y}}}}
+if(bp)pls.push({x:bp.x,y:bp.y,id:1})}
+hist=[];mvs=0;psh=0;t0=Date.now();over=false;hov=null;
+parts=[];floats=[];aId=null;af=pls.length>1?1:0;
+iLv.textContent=i+1;ui();calcCam();
+ovL.classList.add('h');ovW.classList.add('h');
+addF(cW/2,cH/2-30,`第${i+1}关: ${lv.n}`,'#e2e8f0',22,2000)}
+function ui(){iMv.textContent=mvs;iPsh.textContent=psh;
+if(md==='dual'&&pls.length>=2&&!over){turn.textContent=`玩家 ${af+1} 的回合`;
+turn.className='s '+(af===0?'t1':'t2')}else turn.className=''}
+function tmr(){if(!t0||over)return;const s=Math.floor((Date.now()-t0)/1000),
+m=Math.floor(s/60),ss=s%60;iTm.textContent=String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')}
+setInterval(tmr,500);
+function save(){hist.push({p:pls.map(p=>({x:p.x,y:p.y})),b:bxs.map(b=>({x:b.x,y:b.y})),
+a:af,m:mvs,s:psh});if(hist.length>200)hist.shift()}
+function undo(){if(!hist.length||aId||over)return;const h=hist.pop();
+pls=h.p;bxs=h.b;af=h.a;mvs=h.m;psh=h.s;ui()}
+function walk(x,y){return x>=0&&x<gW&&y>=0&&y<gH&&grid[y][x]===0}
+function bxAt(x,y){return bxs.findIndex(b=>b.x===x&&b.y===y)}
+function plAt(x,y){return pls.findIndex(p=>p.x===x&&p.y===y)}
+function blocked(x,y){return!walk(x,y)||bxAt(x,y)>=0||plAt(x,y)>=0}
+function tryMv(pi,dx,dy){if(over||aId)return;
+if(md==='dual'&&pi!==af)return;
+const p=pls[pi],nx=p.x+dx,ny=p.y+dy;
+if(!walk(nx,ny))return;
+const bi=bxAt(nx,ny);
+if(bi>=0){const bnx=bxs[bi].x+dx,bny=bxs[bi].y+dy;
+if(blocked(bnx,bny))return;
+save();bxs[bi].x=bnx;bxs[bi].y=bny;psh++;mvs++;
+const px=oX+nx*tS+tS/2,py=oY+ny*tS+tS/2;
+emit(px,py,10,pi===0?CL.p1:CL.p2,1.5,3);
+if(tgts.some(t=>t.x===bnx&&t.y===bny)){
+const gx=oX+bnx*tS+tS/2,gy=oY+bny*tS+tS/2;
+emit(gx,gy,30,CL.tg,3,5);emit(gx,gy,15,CL.bxG2,2,4);
+addF(gx,gy-tS/2,'目标!','#fbbf24',15,1200)}
+aBx=bi;aBP={x:nx-dx,y:ny-dy};aPD={x:dx,y:dy};
+}else{save();mvs++}
+p.x=nx;p.y=ny;af=1-af;ui();
+aId='mv';aS=performance.now();aPl=pi;aPD={x:dx,y:dy};
+if(bi<0){aBx=-1;aBP=null}}
+function chkWin(){if(bxs.length!==tgts.length)return false;
+return tgts.every(t=>bxs.some(b=>b.x===t.x&&b.y===t.y))}
+function onWin(){over=true;done.add(cl);
+for(let i=0;i<100;i++){const x=cW/2+(Math.random()-.5)*120,y=cH/2-40;
+const cs=['#22c55e','#3b82f6','#f59e0b','#ef4444','#a855f7','#ec4899'];
+parts.push({x,y,vx:(Math.random()-.5)*10,vy:-Math.random()*12-4,
+c:cs[Math.floor(Math.random()*cs.length)],sz:Math.random()*5+2,
+l:1,dc:.006+Math.random()*.008,g:.18})}
+addF(cW/2,cH/2-20,'恭喜过关!','#22c55e',26,2500);
+const el=Math.floor((Date.now()-t0)/1000);
+wT.textContent=`第${cl+1}关 过关!`;
+let st=`步数: ${mvs} · 推动: ${psh} · 时间: ${iTm.textContent}`;
+if(md==='dual'){const m1=hist.filter((_,i)=>i%2===0).length,m2=hist.filter((_,i)=>i%2===1).length;
+st+=`\n玩家1: ${m1}步 · 玩家2: ${m2}步`}
+wS.textContent=st;setTimeout(()=>ovW.classList.remove('h'),1500)}
+function emit(x,y,n,c,sp,sz){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=Math.random()*sp+.5;
+parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,c,sz:Math.random()*sz+1,l:1,dc:.018+Math.random()*.02,g:.04})}}
+function addF(x,y,t,c,s,dur){floats.push({x,y,t,c,s,tm:0,dur:dur||1500})}
+function updParts(dt){const sc=dt/16;for(let i=parts.length-1;i>=0;i--){const p=parts[i];
+p.x+=p.vx*sc;p.y+=p.vy*sc;p.vy+=(p.g||.05)*sc;p.l-=p.dc*sc;if(p.l<=0)parts.splice(i,1)}
+for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.tm+=dt;f.y-=.4*sc;if(f.tm>=f.dur)floats.splice(i,1)}}
+function drawWall(x,y){const px=oX+x*tS,py=oY+y*tS,s=tS;
+cx.fillStyle=CL.wall;cx.fillRect(px,py,s,s);
+cx.fillStyle=CL.wt;cx.fillRect(px,py,s,2);cx.fillRect(px,py,2,s);
+cx.fillStyle='#1e293b';cx.fillRect(px,py+s-2,s,2);cx.fillRect(px+s-2,py,2,s)}
+function drawTgt(t){const px=oX+t.x*tS+tS/2,py=oY+t.y*tS+tS/2,r=tS*.18,
+pu=1+Math.sin(Date.now()*.004)*.2;
+cx.save();cx.shadowColor=CL.tg;cx.shadowBlur=10*pu;
+cx.fillStyle=CL.tg;cx.beginPath();cx.arc(px,py,r*pu,0,Math.PI*2);cx.fill();
+cx.restore();cx.strokeStyle=CL.tg2;cx.lineWidth=2;
+cx.beginPath();cx.arc(px,py,r*1.8,0,Math.PI*2);cx.stroke()}
+function drawBx(b,i){let bx=b.x,by=b.y;
+if(aId==='mv'&&aBx===i&&aBP){const t=easeOut(Math.min(1,(performance.now()-aS)/aD));
+bx=aBP.x+aPD.x*t;by=aBP.y+aPD.y*t}
+const px=oX+bx*tS,py=oY+by*tS,s=tS,pd=s*.1,
+onT=tgts.some(t=>t.x===b.x&&t.y===b.y),c1=onT?CL.bxG:CL.bx,c2=onT?CL.bxG2:CL.bx2;
+cx.fillStyle=c1;cx.fillRect(px+pd,py+pd,s-pd*2,s-pd*2);
+cx.strokeStyle=c2;cx.lineWidth=1.5;cx.strokeRect(px+pd,py+pd,s-pd*2,s-pd*2);
+cx.beginPath();cx.moveTo(px+pd,py+pd);cx.lineTo(px+s-pd,py+s-pd);
+cx.moveTo(px+s-pd,py+pd);cx.lineTo(px+pd,py+s-pd);cx.stroke();
+if(onT){cx.save();cx.shadowColor=CL.bxG2;cx.shadowBlur=12;
+cx.strokeStyle=CL.bxG2;cx.lineWidth=2;cx.strokeRect(px+pd,py+pd,s-pd*2,s-pd*2);cx.restore()}}
+function drawPl(p,i){let px=p.x,py=p.y;
+if(aId==='mv'&&aPl===i){const t=easeOut(Math.min(1,(performance.now()-aS)/aD));
+px=p.x-aPD.x*(1-t);py=p.y-aPD.y*(1-t)}
+const sx=oX+px*tS+tS/2,sy=oY+py*tS+tS/2,r=tS*.35,
+c=i===0?CL.p1:CL.p2,cl=i===0?CL.p1l:CL.p2l;
+if((i===0&&md==='single')||(md==='dual'&&i===af&&!over)){
+cx.save();cx.shadowColor=c;cx.shadowBlur=14;
+cx.fillStyle=c+'40';cx.beginPath();cx.arc(sx,sy,r*1.3,0,Math.PI*2);cx.fill();cx.restore()}
+cx.fillStyle=c;cx.beginPath();cx.arc(sx,sy,r,0,Math.PI*2);cx.fill();
+cx.fillStyle=cl;cx.beginPath();cx.arc(sx-r*.2,sy-r*.2,r*.4,0,Math.PI*2);cx.fill();
+cx.fillStyle='#fff';cx.beginPath();cx.arc(sx+r*.15,sy-r*.1,r*.13,0,Math.PI*2);cx.fill();
+cx.fillStyle='#1e293b';cx.beginPath();cx.arc(sx+r*.18,sy-r*.07,r*.07,0,Math.PI*2);cx.fill();
+if(md==='dual'){cx.fillStyle='#fff';cx.font=`bold ${r*.8}px sans-serif`;
+cx.textAlign='center';cx.textBaseline='middle';cx.fillText(i+1,sx,sy+r*.3)}}
+function render(ts){const dt=Math.min(ts-(render.lt||ts),50);render.lt=ts;
+if(aId){if(performance.now()-aS>=aD){aId=null;if(chkWin())onWin()}}
+updParts(dt);
+cx.fillStyle=CL.bg;cx.fillRect(0,0,cW,cH);
+for(let y=0;y<gH;y++)for(let x=0;x<gW;x++){if(grid[y][x]===1)drawWall(x,y);
+else{cx.fillStyle=CL.fl;cx.fillRect(oX+x*tS,oY+y*tS,tS,tS)}}
+tgts.forEach(drawTgt);bxs.forEach(drawBx);pls.forEach(drawPl);
+for(const p of parts){cx.globalAlpha=Math.max(0,p.l);cx.fillStyle=p.c;
+cx.beginPath();cx.arc(p.x,p.y,p.sz,0,Math.PI*2);cx.fill()}
+cx.globalAlpha=1;
+for(const f of floats){const a=1-f.tm/f.dur;cx.globalAlpha=Math.max(0,a);
+cx.fillStyle=f.c;cx.font=`bold ${f.s}px sans-serif`;cx.textAlign='center';
+cx.fillText(f.t,f.x,f.y)}
+cx.globalAlpha=1;requestAnimationFrame(render)}
+function easeOut(t){return 1-Math.pow(1-t,3)}
+document.addEventListener('keydown',e=>{
+const k=e.key.toLowerCase();
+if(k==='arrowup'||k==='w'){e.preventDefault();tryMv(af,0,-1)}
+else if(k==='arrowdown'||k==='s'){e.preventDefault();tryMv(af,0,1)}
+else if(k==='arrowleft'||k==='a'){e.preventDefault();tryMv(af,-1,0)}
+else if(k==='arrowright'||k==='d'){e.preventDefault();tryMv(af,1,0)}
+else if(k==='z'){e.preventDefault();undo()}
+else if(k==='r'){e.preventDefault();loadLv(cl)}
+else if(k==='escape'){if(!ovL.classList.contains('h'))return;showLvls()}});
+document.querySelectorAll('.db').forEach(b=>{b.addEventListener('click',()=>{
+const[dx,dy]=b.dataset.d.split(',').map(Number);tryMv(af,dx,dy)})});
+let ts=null;cv.addEventListener('touchstart',e=>{ts={x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
+cv.addEventListener('touchend',e=>{if(!ts)return;const dx=e.changedTouches[0].clientX-ts.x,
+dy=e.changedTouches[0].clientY-ts.y;ts=null;
+if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+if(Math.abs(dx)>Math.abs(dy))tryMv(af,dx>0?1:-1,0);else tryMv(af,0,dy>0?1:-1)},{passive:true});
+function showLvls(){const mb=ovL.querySelector('.mb');
+mb.innerHTML='<h2>选择关卡</h2><div class="lg" id="lgr"></div>'+
+'<button class="b" id="bk">返回</button>';
+const g=document.getElementById('lgr');
+LV.forEach((l,i)=>{const d=document.createElement('div');d.className='lb'+(done.has(i)?' dn':'');
+d.innerHTML=`${i+1}<small>${l.n}</small>`;d.onclick=()=>{rebuildMenu();loadLv(i)};g.appendChild(d)});
+document.getElementById('bk').onclick=()=>{rebuildMenu();ovL.classList.add('h')};
+ovL.classList.remove('h')}
+function rebuildMenu(){const mb=ovL.querySelector('.mb');
+mb.innerHTML='<h2>推箱子 Sokoban</h2><p>把所有箱子推到金色目标点上<br>只能推不能拉，需要策略规划</p>'+
+'<div class="mr"><button class="b '+(md==='single'?'bp':'')+'" id="m1">单人模式</button>'+
+'<button class="b '+(md==='dual'?'bg':'')+'" id="m2">双人合作</button></div>'+
+'<button class="b bp" style="width:100%;padding:10px" id="go">开始游戏</button>'+
+'<div class="kh"><kbd>WASD</kbd> / <kbd>方向键</kbd> 移动 · <kbd>Z</kbd> 撤销 · <kbd>R</kbd> 重来</div>';
+bindMenu()}
+function bindMenu(){$('m1').onclick=()=>{md='single';$('m1').className='b bp';$('m2').className='b bg';$('bMd').textContent='单人'};
+$('m2').onclick=()=>{md='dual';$('m2').className='b bg';$('m1').className='b';$('bMd').textContent='双人'};
+$('go').onclick=()=>{ovL.classList.add('h');loadLv(cl)}}
+$('bLv').onclick=showLvls;
+$('bRs').onclick=()=>loadLv(cl);
+$('bUn').onclick=undo;
+$('bMd').onclick=()=>{md=md==='single'?'dual':'single';
+$('bMd').textContent=md==='single'?'单人':'双人';loadLv(cl)};
+$('wR').onclick=()=>{ovW.classList.add('h');loadLv(cl)};
+$('wN').onclick=()=>{ovW.classList.add('h');loadLv(cl<LV.length-1?cl+1:0)};
+bindMenu();window.addEventListener('resize',rsz);rsz();requestAnimationFrame(render)
+})();
+</script>
+</body>
+</html>

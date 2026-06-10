@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>井字棋 Tic-Tac-Toe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0f0f23;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #e0e0e0;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #00d2ff, #7a5cff, #ff6ec7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 2px;
+  }
+
+  #status {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    height: 36px;
+    line-height: 36px;
+    transition: opacity .3s;
+  }
+  #status .x-turn { color: #00d2ff; }
+  #status .o-turn { color: #ff6ec7; }
+  #status .win    { color: #ffd700; font-weight: 700; }
+  #status .draw   { color: #aaa; }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 120px);
+    grid-template-rows: repeat(3, 120px);
+    gap: 6px;
+    position: relative;
+  }
+
+  .cell {
+    width: 120px;
+    height: 120px;
+    background: rgba(255,255,255,0.04);
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: background .2s, border-color .2s, transform .15s;
+    position: relative;
+  }
+  .cell:hover:not(.taken) {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    transform: scale(1.04);
+  }
+  .cell.taken { cursor: default; }
+  .cell .mark { opacity: 0; transform: scale(0.3); transition: opacity .25s, transform .3s cubic-bezier(.34,1.56,.64,1); }
+  .cell .mark.show { opacity: 1; transform: scale(1); }
+  .cell .x-mark { color: #00d2ff; text-shadow: 0 0 18px rgba(0,210,255,0.5); }
+  .cell .o-mark { color: #ff6ec7; text-shadow: 0 0 18px rgba(255,110,199,0.5); }
+  .cell.win-cell {
+    background: rgba(255,215,0,0.12);
+    border-color: rgba(255,215,0,0.5);
+    animation: winPulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes winPulse {
+    from { box-shadow: 0 0 8px rgba(255,215,0,0.2); }
+    to   { box-shadow: 0 0 24px rgba(255,215,0,0.5); }
+  }
+
+  #restart {
+    margin-top: 28px;
+    padding: 12px 36px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #7a5cff, #ff6ec7);
+    color: #fff;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform .2s, box-shadow .2s;
+  }
+  #restart:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 20px rgba(122,92,255,0.4);
+  }
+
+  canvas#particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #score {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 16px;
+    font-size: 1rem;
+  }
+  #score span { font-weight: 600; }
+  #score .sx { color: #00d2ff; }
+  #score .so { color: #ff6ec7; }
+  #score .sd { color: #aaa; }
+</style>
+</head>
+<body>
+
+<h1>井字棋 Tic-Tac-Toe</h1>
+<div id="score">
+  <div class="sx">✕ 胜: <span id="wx">0</span></div>
+  <div class="sd">平局: <span id="wd">0</span></div>
+  <div class="so">○ 胜: <span id="wo">0</span></div>
+</div>
+<div id="status"></div>
+<div id="board"></div>
+<button id="restart">再来一局</button>
+<canvas id="particles"></canvas>
+
+<script>
+(function () {
+  const board = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const restartBtn = document.getElementById('restart');
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+
+  let cells, state, turn, gameOver, moveCount;
+  let scores = { x: 0, o: 0, d: 0 };
+
+  const WINS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function init() {
+    board.innerHTML = '';
+    cells = [];
+    state = Array(9).fill(null);
+    turn = 'x';
+    gameOver = false;
+    moveCount = 0;
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.idx = i;
+      const mark = document.createElement('span');
+      mark.className = 'mark';
+      cell.appendChild(mark);
+      cell.addEventListener('click', () => handleClick(i));
+      board.appendChild(cell);
+      cells.push(cell);
+    }
+    updateStatus();
+  }
+
+  function updateStatus() {
+    if (gameOver) return;
+    const cls = turn === 'x' ? 'x-turn' : 'o-turn';
+    const sym = turn === 'x' ? '✕' : '○';
+    statusEl.innerHTML = `<span class="${cls}">${sym} 的回合</span>`;
+  }
+
+  function handleClick(i) {
+    if (gameOver || state[i]) return;
+    state[i] = turn;
+    moveCount++;
+
+    const cell = cells[i];
+    cell.classList.add('taken');
+    const mark = cell.querySelector('.mark');
+    mark.textContent = turn === 'x' ? '✕' : '○';
+    mark.classList.add('show', turn === 'x' ? 'x-mark' : 'o-mark');
+
+    const rect = cell.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    spawnPlaceParticles(cx, cy, turn);
+
+    const winLine = checkWin(turn);
+    if (winLine) {
+      gameOver = true;
+      winLine.forEach(idx => cells[idx].classList.add('win-cell'));
+      const sym = turn === 'x' ? '✕' : '○';
+      statusEl.innerHTML = `<span class="win">🎉 ${sym} 获胜！</span>`;
+      scores[turn]++;
+      updateScores();
+      winLine.forEach(idx => {
+        const r = cells[idx].getBoundingClientRect();
+        spawnWinParticles(r.left + r.width / 2, r.top + r.height / 2);
+      });
+      return;
+    }
+
+    if (moveCount === 9) {
+      gameOver = true;
+      statusEl.innerHTML = `<span class="draw">平局！</span>`;
+      scores.d++;
+      updateScores();
+      return;
+    }
+
+    turn = turn === 'x' ? 'o' : 'x';
+    updateStatus();
+  }
+
+  function checkWin(p) {
+    for (const line of WINS) {
+      if (line.every(i => state[i] === p)) return line;
+    }
+    return null;
+  }
+
+  function updateScores() {
+    document.getElementById('wx').textContent = scores.x;
+    document.getElementById('wo').textContent = scores.o;
+    document.getElementById('wd').textContent = scores.d;
+  }
+
+  restartBtn.addEventListener('click', init);
+
+  // --- Particle System ---
+  let particles = [];
+
+  class Particle {
+    constructor(x, y, color, opts = {}) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      const angle = opts.angle ?? Math.random() * Math.PI * 2;
+      const speed = opts.speed ?? (2 + Math.random() * 4);
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+      this.gravity = opts.gravity ?? 0.06;
+      this.life = opts.life ?? (0.6 + Math.random() * 0.6);
+      this.maxLife = this.life;
+      this.size = opts.size ?? (2 + Math.random() * 3);
+      this.friction = opts.friction ?? 0.98;
+    }
+    update(dt) {
+      this.vx *= this.friction;
+      this.vy *= this.friction;
+      this.vy += this.gravity;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.life -= dt;
+    }
+    draw(ctx) {
+      const alpha = Math.max(0, this.life / this.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function spawnPlaceParticles(cx, cy, type) {
+    const colors = type === 'x'
+      ? ['#00d2ff', '#5be9ff', '#009fcc', '#ffffff']
+      : ['#ff6ec7', '#ff99dd', '#cc3399', '#ffffff'];
+    for (let i = 0; i < 24; i++) {
+      particles.push(new Particle(cx, cy, colors[i % colors.length], {
+        speed: 2 + Math.random() * 5,
+        size: 2 + Math.random() * 3,
+        life: 0.5 + Math.random() * 0.5
+      }));
+    }
+  }
+
+  function spawnWinParticles(cx, cy) {
+    const colors = ['#ffd700', '#ffec80', '#ffaa00', '#ffffff', '#ff6ec7', '#00d2ff'];
+    for (let i = 0; i < 60; i++) {
+      particles.push(new Particle(cx, cy, colors[i % colors.length], {
+        speed: 3 + Math.random() * 7,
+        size: 2 + Math.random() * 4,
+        life: 0.8 + Math.random() * 1.0,
+        gravity: 0.08
+      }));
+    }
+  }
+
+  let lastTime = performance.now();
+  function animate(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(p => p.life > 0);
+    for (const p of particles) {
+      p.update(dt);
+      p.draw(ctx);
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  init();
+})();
+</script>
+</body>
+</html>

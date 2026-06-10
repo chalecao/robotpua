@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黑白棋 Reversi</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #eee;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+h1 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(100,200,255,.4);
+}
+.info-bar {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+.score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.08);
+}
+.score .dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid #555;
+}
+.score .dot.black { background: radial-gradient(circle at 35% 35%, #555, #111); }
+.score .dot.white { background: radial-gradient(circle at 35% 35%, #fff, #bbb); }
+.turn-indicator {
+  padding: 6px 18px;
+  border-radius: 20px;
+  background: rgba(100,200,255,.15);
+  border: 1px solid rgba(100,200,255,.3);
+  transition: all .3s;
+}
+#board-wrapper {
+  position: relative;
+  margin: 0 auto;
+}
+canvas#particleCanvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  background: #111;
+  border: 3px solid #333;
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: 0 0 40px rgba(0,0,0,.6), 0 0 80px rgba(50,100,150,.15);
+}
+.cell {
+  width: 64px; height: 64px;
+  background: #2d6a4f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background .15s;
+}
+.cell:hover { background: #3a8963; }
+.cell.valid::after {
+  content: '';
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.18);
+  position: absolute;
+}
+.piece {
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  transition: transform .4s ease;
+  position: absolute;
+  box-shadow: 0 3px 8px rgba(0,0,0,.5);
+}
+.piece.black {
+  background: radial-gradient(circle at 35% 35%, #666, #111);
+  border: 2px solid #444;
+}
+.piece.white {
+  background: radial-gradient(circle at 35% 35%, #fff, #bbb);
+  border: 2px solid #999;
+}
+.piece.flip {
+  animation: flipAnim .45s ease-in-out;
+}
+@keyframes flipAnim {
+  0% { transform: scale(1) rotateY(0); }
+  50% { transform: scale(1.15) rotateY(90deg); }
+  100% { transform: scale(1) rotateY(0); }
+}
+.piece.place {
+  animation: placeAnim .3s ease-out;
+}
+@keyframes placeAnim {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #16213e;
+  border: 2px solid rgba(100,200,255,.3);
+  border-radius: 16px;
+  padding: 40px 50px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(50,100,200,.3);
+}
+.modal h2 { font-size: 1.8rem; margin-bottom: 12px; }
+.modal p { font-size: 1.2rem; margin-bottom: 24px; color: #aaa; }
+.modal button {
+  padding: 12px 36px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0f3460, #533483);
+  color: #fff;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.modal button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(83,52,131,.5);
+}
+@media (max-width: 560px) {
+  .cell { width: 44px; height: 44px; }
+  .piece { width: 34px; height: 34px; }
+  h1 { font-size: 1.4rem; }
+}
+</style>
+</head>
+<body>
+<h1>黑白棋 Reversi</h1>
+<div class="info-bar">
+  <div class="score"><span class="dot black"></span> <span id="blackScore">2</span></div>
+  <div class="turn-indicator" id="turnLabel">黑棋落子</div>
+  <div class="score"><span class="dot white"></span> <span id="whiteScore">2</span></div>
+</div>
+<div id="board-wrapper">
+  <div class="board" id="board"></div>
+</div>
+<canvas id="particleCanvas"></canvas>
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">游戏结束</h2>
+    <p id="modalMsg"></p>
+    <button onclick="initGame()">再来一局</button>
+  </div>
+</div>
+
+<script>
+const EMPTY = 0, BLACK = 1, WHITE = 2;
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+let board, turn, gameOver;
+
+const boardEl = document.getElementById('board');
+const blackScoreEl = document.getElementById('blackScore');
+const whiteScoreEl = document.getElementById('whiteScore');
+const turnLabel = document.getElementById('turnLabel');
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalMsg = document.getElementById('modalMsg');
+
+// Particle system
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+class Particle {
+  constructor(x, y, color, vel, life, size) {
+    this.x = x; this.y = y;
+    this.color = color;
+    this.vx = vel.x; this.vy = vel.y;
+    this.life = life;
+    this.maxLife = life;
+    this.size = size || 3;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.05;
+    this.life--;
+  }
+  draw(ctx) {
+    const alpha = this.life / this.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function spawnFlipParticles(cellEl, color) {
+  const rect = cellEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const pColor = color === BLACK ? '#aaa' : '#fff';
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    particles.push(new Particle(cx, cy, pColor,
+      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed - 1 },
+      30 + Math.random() * 20, 2 + Math.random() * 2));
+  }
+}
+
+function spawnVictoryParticles() {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  const colors = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff6bff','#fff'];
+  for (let i = 0; i < 150; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 6;
+    particles.push(new Particle(
+      cx + (Math.random() - .5) * 200,
+      cy + (Math.random() - .5) * 200,
+      colors[Math.floor(Math.random() * colors.length)],
+      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed - 3 },
+      60 + Math.random() * 60, 2 + Math.random() * 4));
+  }
+}
+
+function animateParticles() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => { p.update(); p.draw(ctx); });
+  requestAnimationFrame(animateParticles);
+}
+animateParticles();
+
+function inBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+function getFlips(b, r, c, player) {
+  if (b[r][c] !== EMPTY) return [];
+  const opp = player === BLACK ? WHITE : BLACK;
+  let allFlips = [];
+  for (const [dr, dc] of DIRS) {
+    let flips = [];
+    let nr = r + dr, nc = c + dc;
+    while (inBounds(nr, nc) && b[nr][nc] === opp) {
+      flips.push([nr, nc]);
+      nr += dr; nc += dc;
+    }
+    if (flips.length > 0 && inBounds(nr, nc) && b[nr][nc] === player) {
+      allFlips.push(...flips);
+    }
+  }
+  return allFlips;
+}
+
+function hasValidMove(b, player) {
+  for (let r = 0; r < 8; r++)
+    for (let c = 0; c < 8; c++)
+      if (getFlips(b, r, c, player).length > 0) return true;
+  return false;
+}
+
+function countPieces(b) {
+  let bl = 0, wh = 0;
+  for (let r = 0; r < 8; r++)
+    for (let c = 0; c < 8; c++) {
+      if (b[r][c] === BLACK) bl++;
+      else if (b[r][c] === WHITE) wh++;
+    }
+  return { black: bl, white: wh };
+}
+
+function updateScores() {
+  const { black, white } = countPieces(board);
+  blackScoreEl.textContent = black;
+  whiteScoreEl.textContent = white;
+}
+
+function renderBoard() {
+  boardEl.innerHTML = '';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+
+      if (board[r][c] !== EMPTY) {
+        const piece = document.createElement('div');
+        piece.className = 'piece ' + (board[r][c] === BLACK ? 'black' : 'white');
+        piece.id = `p-${r}-${c}`;
+        cell.appendChild(piece);
+      } else if (!gameOver && getFlips(board, r, c, turn).length > 0) {
+        cell.classList.add('valid');
+      }
+
+      cell.addEventListener('click', () => handleClick(r, c));
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function handleClick(r, c) {
+  if (gameOver) return;
+  const flips = getFlips(board, r, c, turn);
+  if (flips.length === 0) return;
+
+  board[r][c] = turn;
+  renderBoard();
+
+  const placedPiece = document.getElementById(`p-${r}-${c}`);
+  if (placedPiece) placedPiece.classList.add('place');
+
+  const flipColor = turn === BLACK ? WHITE : BLACK;
+  flips.forEach(([fr, fc], i) => {
+    setTimeout(() => {
+      board[fr][fc] = turn;
+      const el = document.getElementById(`p-${fr}-${fc}`);
+      if (el) {
+        const cellEl = el.parentElement;
+        spawnFlipParticles(cellEl, flipColor);
+        el.classList.add('flip');
+        setTimeout(() => {
+          el.className = 'piece ' + (turn === BLACK ? 'black' : 'white');
+        }, 220);
+      }
+      updateScores();
+    }, i * 80);
+  });
+
+  setTimeout(() => {
+    const opp = turn === BLACK ? WHITE : BLACK;
+    if (hasValidMove(board, opp)) {
+      turn = opp;
+    } else if (hasValidMove(board, turn)) {
+      // opponent has no move, current player goes again
+    } else {
+      gameOver = true;
+      endGame();
+    }
+    turnLabel.textContent = turn === BLACK ? '黑棋落子' : '白棋落子';
+    renderBoard();
+    updateScores();
+  }, flips.length * 80 + 100);
+}
+
+function endGame() {
+  const { black, white } = countPieces(board);
+  let title, msg;
+  if (black > white) {
+    title = '黑棋获胜!';
+  } else if (white > black) {
+    title = '白棋获胜!';
+  } else {
+    title = '平局!';
+  }
+  msg = `黑 ${black} : ${white} 白`;
+  spawnVictoryParticles();
+  setTimeout(() => {
+    modalTitle.textContent = title;
+    modalMsg.textContent = msg;
+    modal.classList.add('active');
+  }, 600);
+}
+
+function initGame() {
+  board = Array.from({ length: 8 }, () => Array(8).fill(EMPTY));
+  board[3][3] = WHITE; board[3][4] = BLACK;
+  board[4][3] = BLACK; board[4][4] = WHITE;
+  turn = BLACK;
+  gameOver = false;
+  modal.classList.remove('active');
+  turnLabel.textContent = '黑棋落子';
+  updateScores();
+  renderBoard();
+}
+
+initGame();
+</script>
+</body>
+</html>

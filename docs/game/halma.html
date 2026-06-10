@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跳棋 Halma</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #c9d1d9;
+  user-select: none;
+  -webkit-user-select: none;
+}
+h1 {
+  font-size: 26px;
+  margin-bottom: 6px;
+  letter-spacing: 2px;
+  color: #e6edf3;
+  text-shadow: 0 0 20px rgba(88,166,255,0.3);
+}
+#status {
+  font-size: 17px;
+  margin-bottom: 10px;
+  min-height: 28px;
+  transition: color 0.3s;
+}
+.p1-color { color: #58a6ff; }
+.p2-color { color: #f78166; }
+.win-color { color: #3fb950; font-weight: bold; font-size: 20px; }
+#board-container {
+  position: relative;
+  touch-action: none;
+}
+canvas { display: block; }
+#controls {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+button {
+  padding: 8px 22px;
+  background: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+button:hover {
+  background: #30363d;
+  border-color: #8b949e;
+}
+#help {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #484f58;
+  text-align: center;
+  max-width: 500px;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+<h1>跳棋 Halma</h1>
+<div id="status"></div>
+<div id="board-container"><canvas id="canvas"></canvas></div>
+<div id="controls">
+  <button onclick="game.restart()">重新开始</button>
+  <button onclick="game.undo()" id="undo-btn">悔棋</button>
+</div>
+<div id="help">点击己方棋子选中，再点击目标位置移动。可单步移动至相邻空位，也可跳过任意棋子连跳。率先将全部 10 颗棋子移入对面三角区域即获胜。</div>
+<script>
+(function() {
+  'use strict';
+
+  const HEX_SIZE = 26;
+  const SQRT3 = Math.sqrt(3);
+  const BOARD_EXTENT = 4;
+  const STAR_MIN = 5;
+  const STAR_MAX = 8;
+
+  const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+  const P1_COLOR = '#58a6ff';
+  const P2_COLOR = '#f78166';
+  const P1_ZONE_COLOR = 'rgba(88,166,255,0.22)';
+  const P2_ZONE_COLOR = 'rgba(247,129,102,0.22)';
+  const P1_PIECE = ['#58a6ff','#1f6feb'];
+  const P2_PIECE = ['#f78166','#da3633'];
+
+  function pk(q, r) { return q + ',' + r; }
+  function axToPixel(q, r) {
+    return {
+      x: HEX_SIZE * (SQRT3 * q + SQRT3 / 2 * r),
+      y: HEX_SIZE * 1.5 * r
+    };
+  }
+  function pixelToAxial(px, py) {
+    var q = (SQRT3 / 3 * px - 1 / 3 * py) / HEX_SIZE;
+    var r = (2 / 3 * py) / HEX_SIZE;
+    return axRound(q, r);
+  }
+  function axRound(fq, fr) {
+    var fs = -fq - fr;
+    var rq = Math.round(fq), rr = Math.round(fr), rs = Math.round(fs);
+    var dq = Math.abs(rq - fq), dr = Math.abs(rr - fr), ds = Math.abs(rs - fs);
+    if (dq > dr && dq > ds) rq = -rr - rs;
+    else if (dr > ds) rr = -rq - rs;
+    return { q: rq, r: rr };
+  }
+  function hexDist(a, b) {
+    return Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r),
+                    Math.abs((-a.q - a.r) - (-b.q - b.r)));
+  }
+
+  function Game() {
+    this.canvas = document.getElementById('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.statusEl = document.getElementById('status');
+    this.particles = [];
+    this.initBoard();
+    this.resetState();
+    this.setupCanvas();
+    this.updateStatus();
+    this.bindEvents();
+    this.loop();
+  }
+
+  Game.prototype.initBoard = function() {
+    this.positions = new Set();
+    var q, r, s;
+    for (q = -BOARD_EXTENT; q <= BOARD_EXTENT; q++) {
+      for (r = -BOARD_EXTENT; r <= BOARD_EXTENT; r++) {
+        s = -q - r;
+        if (Math.abs(s) <= BOARD_EXTENT) this.positions.add(pk(q, r));
+      }
+    }
+    for (q = STAR_MIN; q <= STAR_MAX; q++) {
+      for (r = -STAR_MAX; r <= -STAR_MIN; r++) {
+        s = -q - r;
+        if (s >= STAR_MIN && s <= STAR_MAX) this.positions.add(pk(q, r));
+        if (s >= -STAR_MAX && s <= -STAR_MIN) this.positions.add(pk(q, r));
+      }
+    }
+
+    this.zone1 = new Set();
+    this.zone2 = new Set();
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      q = p[0]; r = p[1]; s = -q - r;
+      if (r >= 0 && s >= 0 && q >= 0 && r + q <= BOARD_EXTENT) this.zone1.add(k);
+      if (r <= 0 && s <= 0 && q <= 0 && (-r) + (-q) <= BOARD_EXTENT) this.zone2.add(k);
+    }.bind(this));
+
+    this.start1 = [[0,0],[0,1],[0,2],[0,3],[0,4],[1,0],[1,1],[1,2],[1,3],[2,0]];
+    this.start2 = [[0,-4],[-1,-3],[-2,-2],[-3,-1],[-4,0],[-3,0],[-2,-1],[-1,-2],[-2,0],[-1,-1]];
+  };
+
+  Game.prototype.resetState = function() {
+    this.board = {};
+    this.positions.forEach(function(k) { this.board[k] = 0; }.bind(this));
+    this.start1.forEach(function(p) { this.board[pk(p[0], p[1])] = 1; }.bind(this));
+    this.start2.forEach(function(p) { this.board[pk(p[0], p[1])] = 2; }.bind(this));
+    this.currentPlayer = 1;
+    this.selected = null;
+    this.validMoves = [];
+    this.history = [];
+    this.gameOver = false;
+    this.winner = 0;
+    this.lastMove = null;
+    this.particles = [];
+    this.hoveredCell = null;
+    this.movingPiece = null;
+    this.animPiecePos = null;
+  };
+
+  Game.prototype.setupCanvas = function() {
+    var dpr = window.devicePixelRatio || 1;
+    this.dpr = dpr;
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      var px = axToPixel(p[0], p[1]);
+      minX = Math.min(minX, px.x); maxX = Math.max(maxX, px.x);
+      minY = Math.min(minY, px.y); maxY = Math.max(maxY, px.y);
+    });
+    var pad = HEX_SIZE * 2.5;
+    this.offsetX = -minX + pad;
+    this.offsetY = -minY + pad;
+    var w = maxX - minX + pad * 2;
+    var h = maxY - minY + pad * 2;
+    this.canvas.width = w * dpr;
+    this.canvas.height = h * dpr;
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
+    this.cw = w;
+    this.ch = h;
+  };
+
+  Game.prototype.getStepMoves = function(q, r) {
+    var moves = [];
+    for (var d = 0; d < 6; d++) {
+      var nq = q + DIRS[d][0], nr = r + DIRS[d][1];
+      var key = pk(nq, nr);
+      if (this.positions.has(key) && this.board[key] === 0) {
+        moves.push({ q: nq, r: nr, type: 'step' });
+      }
+    }
+    return moves;
+  };
+
+  Game.prototype.getJumpChains = function(q, r) {
+    var results = [];
+    var visited = {};
+    visited[pk(q, r)] = true;
+    var queue = [{ q: q, r: r, path: [] }];
+    while (queue.length > 0) {
+      var cur = queue.shift();
+      for (var d = 0; d < 6; d++) {
+        var mq = cur.q + DIRS[d][0], mr = cur.r + DIRS[d][1];
+        var lq = cur.q + DIRS[d][0] * 2, lr = cur.r + DIRS[d][1] * 2;
+        var mKey = pk(mq, mr), lKey = pk(lq, lr);
+        if (this.positions.has(mKey) && this.board[mKey] !== 0 &&
+            this.positions.has(lKey) && this.board[lKey] === 0 && !visited[lKey]) {
+          visited[lKey] = true;
+          var np = cur.path.concat([{ q: lq, r: lr }]);
+          results.push({ q: lq, r: lr, type: 'jump', path: np.slice() });
+          queue.push({ q: lq, r: lr, path: np });
+        }
+      }
+    }
+    return results;
+  };
+
+  Game.prototype.getValidMoves = function(q, r) {
+    return this.getStepMoves(q, r).concat(this.getJumpChains(q, r));
+  };
+
+  Game.prototype.handleClick = function(cx, cy) {
+    if (this.gameOver || this.isAnimating) return;
+    var rect = this.canvas.getBoundingClientRect();
+    var px = (cx - rect.left) - this.offsetX;
+    var py = (cy - rect.top) - this.offsetY;
+    var ax = pixelToAxial(px, py);
+    var key = pk(ax.q, ax.r);
+
+    if (!this.positions.has(key)) {
+      this.selected = null;
+      this.validMoves = [];
+      return;
+    }
+
+    var nearest = null, nearDist = Infinity;
+    var self = this;
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      var pp = axToPixel(p[0], p[1]);
+      var dd = Math.hypot(pp.x - px, pp.y - py);
+      if (dd < nearDist) { nearDist = dd; nearest = { q: p[0], r: p[1] }; }
+    });
+    if (!nearest || nearDist > HEX_SIZE * 1.1) {
+      this.selected = null;
+      this.validMoves = [];
+      return;
+    }
+    ax = nearest;
+    key = pk(ax.q, ax.r);
+
+    if (this.board[key] === this.currentPlayer) {
+      this.selected = { q: ax.q, r: ax.r };
+      this.validMoves = this.getValidMoves(ax.q, ax.r);
+      return;
+    }
+
+    if (this.selected) {
+      for (var i = 0; i < this.validMoves.length; i++) {
+        var m = this.validMoves[i];
+        if (m.q === ax.q && m.r === ax.r) {
+          this.executeMove(m);
+          return;
+        }
+      }
+    }
+
+    this.selected = null;
+    this.validMoves = [];
+  };
+
+  Game.prototype.executeMove = function(move) {
+    var sk = pk(this.selected.q, this.selected.r);
+    var ek = pk(move.q, move.r);
+    var sp = axToPixel(this.selected.q, this.selected.r);
+    var ep = axToPixel(move.q, move.r);
+
+    this.board[ek] = this.currentPlayer;
+    this.board[sk] = 0;
+
+    if (move.type === 'step') {
+      this.lastMove = { from: { q: this.selected.q, r: this.selected.r }, to: move };
+      this.history.push({ type: 'step', from: sk, to: ek, player: this.currentPlayer });
+      this.emitMove(sp.x + this.offsetX, sp.y + this.offsetY,
+                    ep.x + this.offsetX, ep.y + this.offsetY,
+                    this.currentPlayer === 1 ? P1_COLOR : P2_COLOR);
+      this.selected = null;
+      this.validMoves = [];
+      this.checkWinner();
+      if (!this.gameOver) this.endTurn();
+    } else {
+      this.history.push({ type: 'jump', from: sk, to: ek, player: this.currentPlayer });
+      this.movingPiece = { from: sk, to: ek };
+      this.animateJumpChain(move.path, this.currentPlayer, function() {
+        this.movingPiece = null;
+        this.lastMove = { from: { q: this.selected.q, r: this.selected.r }, to: move };
+        this.selected = null;
+        this.validMoves = [];
+        this.checkWinner();
+        if (!this.gameOver) this.endTurn();
+      }.bind(this));
+    }
+  };
+
+  Game.prototype.animateJumpChain = function(path, player, cb) {
+    this.isAnimating = true;
+    var color = player === 1 ? P1_COLOR : P2_COLOR;
+    var idx = 0;
+    var prev = axToPixel(this.selected.q, this.selected.r);
+    this.animPiecePos = { q: this.selected.q, r: this.selected.r };
+    var self = this;
+    var next = function() {
+      if (idx >= path.length) { self.isAnimating = false; self.animPiecePos = null; cb(); return; }
+      var p = path[idx];
+      var cur = axToPixel(p.q, p.r);
+      self.emitJump(
+        (prev.x + cur.x) / 2 + self.offsetX,
+        (prev.y + cur.y) / 2 + self.offsetY, color);
+      self.emitMove(prev.x + self.offsetX, prev.y + self.offsetY,
+                    cur.x + self.offsetX, cur.y + self.offsetY, color);
+      self.animPiecePos = { q: p.q, r: p.r };
+      prev = cur;
+      idx++;
+      setTimeout(next, 100);
+    };
+    next();
+  };
+
+  Game.prototype.endTurn = function() {
+    this.selected = null;
+    this.validMoves = [];
+    this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+    this.updateStatus();
+  };
+
+  Game.prototype.checkWinner = function() {
+    var all1in2 = true, all2in1 = true;
+    var self = this;
+    this.start1.forEach(function(p) {
+      if (self.board[pk(p[0], p[1])] !== 2) all2in1 = false;
+    });
+    this.start2.forEach(function(p) {
+      if (self.board[pk(p[0], p[1])] !== 1) all1in2 = false;
+    });
+    if (all1in2) {
+      this.gameOver = true;
+      this.winner = 1;
+      this.emitVictory(P1_COLOR);
+      this.updateStatus();
+    } else if (all2in1) {
+      this.gameOver = true;
+      this.winner = 2;
+      this.emitVictory(P2_COLOR);
+      this.updateStatus();
+    }
+  };
+
+  Game.prototype.undo = function() {
+    if (this.history.length === 0 || this.isAnimating) return;
+    var last = this.history.pop();
+    this.board[last.from] = last.player;
+    this.board[last.to] = 0;
+    this.currentPlayer = last.player;
+    this.gameOver = false;
+    this.winner = 0;
+    this.lastMove = null;
+    this.selected = null;
+    this.validMoves = [];
+    this.particles = [];
+    this.updateStatus();
+  };
+
+  Game.prototype.restart = function() {
+    this.resetState();
+    this.updateStatus();
+  };
+
+  Game.prototype.updateStatus = function() {
+    if (this.gameOver) {
+      var wc = this.winner === 1 ? 'p1-color' : 'p2-color';
+      this.statusEl.className = 'win-color';
+      this.statusEl.innerHTML = '🎉 玩家 ' + this.winner + ' 获胜！';
+    } else {
+      var pc = this.currentPlayer === 1 ? 'p1-color' : 'p2-color';
+      this.statusEl.className = pc;
+      this.statusEl.innerHTML = '玩家 ' + this.currentPlayer + ' 的回合';
+    }
+  };
+
+  // === Particle System ===
+
+  Game.prototype.emitMove = function(x1, y1, x2, y2, color) {
+    var count = 10;
+    for (var i = 0; i < count; i++) {
+      var t = i / count;
+      var angle = Math.atan2(y2 - y1, x2 - x1) + (Math.random() - 0.5) * 1.2;
+      var speed = 0.5 + Math.random() * 1.5;
+      this.particles.push({
+        x: x1 + (x2 - x1) * t + (Math.random() - 0.5) * 6,
+        y: y1 + (y2 - y1) * t + (Math.random() - 0.5) * 6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1, decay: 0.018 + Math.random() * 0.015,
+        size: 1.5 + Math.random() * 2.5, color: color
+      });
+    }
+  };
+
+  Game.prototype.emitJump = function(x, y, color) {
+    for (var i = 0; i < 18; i++) {
+      var angle = Math.PI * 2 * i / 18 + Math.random() * 0.3;
+      var speed = 2 + Math.random() * 3;
+      this.particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 1, decay: 0.014 + Math.random() * 0.012,
+        size: 2.5 + Math.random() * 3.5, color: color
+      });
+    }
+    var sparkColors = ['#ffd700', '#ffaa00', '#fff5cc'];
+    for (var j = 0; j < 10; j++) {
+      var a2 = Math.random() * Math.PI * 2;
+      var sp = 1 + Math.random() * 2;
+      this.particles.push({
+        x: x, y: y,
+        vx: Math.cos(a2) * sp, vy: Math.sin(a2) * sp,
+        life: 1, decay: 0.022 + Math.random() * 0.018,
+        size: 1 + Math.random() * 2,
+        color: sparkColors[Math.floor(Math.random() * 3)]
+      });
+    }
+  };
+
+  Game.prototype.emitVictory = function(color) {
+    var colors = [color, '#ffd700', '#ff6b6b', '#4ecdc4', '#ffffff', '#a78bfa'];
+    for (var burst = 0; burst < 5; burst++) {
+      var cx = this.cw * (0.15 + Math.random() * 0.7);
+      var cy = this.ch * (0.15 + Math.random() * 0.7);
+      for (var i = 0; i < 40; i++) {
+        var angle = Math.PI * 2 * i / 40 + Math.random() * 0.4;
+        var speed = 2 + Math.random() * 5;
+        var c = colors[Math.floor(Math.random() * colors.length)];
+        this.particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1.5,
+          life: 1, decay: 0.005 + Math.random() * 0.007,
+          size: 2.5 + Math.random() * 4, color: c,
+          gravity: 0.03
+        });
+      }
+    }
+  };
+
+  Game.prototype.updateParticles = function() {
+    var alive = [];
+    for (var i = 0; i < this.particles.length; i++) {
+      var p = this.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.gravity) p.vy += p.gravity;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      p.life -= p.decay;
+      if (p.life > 0) alive.push(p);
+    }
+    this.particles = alive;
+  };
+
+  // === Rendering ===
+
+  Game.prototype.loop = function() {
+    this.updateParticles();
+    this.render();
+    requestAnimationFrame(this.loop.bind(this));
+  };
+
+  Game.prototype.render = function() {
+    var ctx = this.ctx, dpr = this.dpr;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.cw, this.ch);
+    ctx.save();
+    ctx.translate(this.offsetX, this.offsetY);
+
+    this.renderConnections(ctx);
+    this.renderBoard(ctx);
+
+    if (this.lastMove) {
+      this.renderCellHighlight(ctx, this.lastMove.from.q, this.lastMove.from.r,
+        'rgba(255,215,0,0.12)', 'rgba(255,215,0,0.35)');
+      this.renderCellHighlight(ctx, this.lastMove.to.q, this.lastMove.to.r,
+        'rgba(255,215,0,0.18)', 'rgba(255,215,0,0.5)');
+    }
+
+    if (this.selected) {
+      this.renderCellHighlight(ctx, this.selected.q, this.selected.r,
+        'rgba(255,255,255,0.18)', '#ffffff');
+    }
+
+    for (var i = 0; i < this.validMoves.length; i++) {
+      var m = this.validMoves[i];
+      if (m.type === 'jump') {
+        this.renderMoveDot(ctx, m.q, m.r, 'rgba(255,215,0,0.85)', 6);
+      } else {
+        this.renderMoveDot(ctx, m.q, m.r, 'rgba(63,185,80,0.7)', 5);
+      }
+    }
+
+    if (this.selected) {
+      var sk = pk(this.selected.q, this.selected.r);
+      if (this.board[sk] !== 0) {
+        this.renderPiece(ctx, this.selected.q, this.selected.r, this.board[sk], 1.12);
+      }
+    }
+
+    this.renderPieces(ctx);
+
+    if (this.animPiecePos) {
+      this.renderPiece(ctx, this.animPiecePos.q, this.animPiecePos.r, this.currentPlayer, 1.08);
+    }
+
+    ctx.restore();
+    this.renderParticles(ctx);
+    ctx.restore();
+  };
+
+  Game.prototype.drawHex = function(ctx, cx, cy, size) {
+    ctx.beginPath();
+    for (var i = 0; i < 6; i++) {
+      var angle = Math.PI / 3 * i - Math.PI / 6;
+      var x = cx + size * Math.cos(angle);
+      var y = cy + size * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  };
+
+  Game.prototype.renderConnections = function(ctx) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+    ctx.lineWidth = 1;
+    var drawn = {};
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      for (var d = 0; d < 6; d++) {
+        var nq = p[0] + DIRS[d][0], nr = p[1] + DIRS[d][1];
+        var nk = pk(nq, nr);
+        if (this.positions.has(nk)) {
+          var ek = k < nk ? k + '|' + nk : nk + '|' + k;
+          if (!drawn[ek]) {
+            drawn[ek] = true;
+            var fp = axToPixel(p[0], p[1]);
+            var tp = axToPixel(nq, nr);
+            ctx.beginPath();
+            ctx.moveTo(fp.x, fp.y);
+            ctx.lineTo(tp.x, tp.y);
+            ctx.stroke();
+          }
+        }
+      }
+    }.bind(this));
+  };
+
+  Game.prototype.renderBoard = function(ctx) {
+    var s = HEX_SIZE * 0.88;
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      var px = axToPixel(p[0], p[1]);
+      var fill = '#161b22';
+      var stroke = '#30363d';
+      if (this.zone1.has(k)) { fill = 'rgba(31,111,235,0.18)'; stroke = 'rgba(88,166,255,0.35)'; }
+      if (this.zone2.has(k)) { fill = 'rgba(218,54,51,0.18)'; stroke = 'rgba(247,129,102,0.35)'; }
+      this.drawHex(ctx, px.x, px.y, s);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      if (this.board[k] === 0) {
+        ctx.beginPath();
+        ctx.arc(px.x, px.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fill();
+      }
+    }.bind(this));
+  };
+
+  Game.prototype.renderCellHighlight = function(ctx, q, r, fill, stroke) {
+    var px = axToPixel(q, r);
+    this.drawHex(ctx, px.x, px.y, HEX_SIZE * 0.92);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  };
+
+  Game.prototype.renderMoveDot = function(ctx, q, r, color, radius) {
+    var px = axToPixel(q, r);
+    ctx.beginPath();
+    ctx.arc(px.x, px.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+
+  Game.prototype.renderPieces = function(ctx) {
+    this.positions.forEach(function(k) {
+      var p = k.split(',').map(Number);
+      var player = this.board[k];
+      if (player !== 0) {
+        if (this.selected && this.selected.q === p[0] && this.selected.r === p[1]) return;
+        if (this.movingPiece && this.movingPiece.to === k) return;
+        this.renderPiece(ctx, p[0], p[1], player, 1);
+      }
+    }.bind(this));
+  };
+
+  Game.prototype.renderPiece = function(ctx, q, r, player, scale) {
+    var px = axToPixel(q, r);
+    var radius = HEX_SIZE * 0.52 * scale;
+    var colors = player === 1 ? P1_PIECE : P2_PIECE;
+
+    ctx.save();
+    ctx.shadowColor = colors[0];
+    ctx.shadowBlur = 10 * scale;
+
+    var grad = ctx.createRadialGradient(
+      px.x - radius * 0.3, px.y - radius * 0.3, 0,
+      px.x, px.y, radius);
+    grad.addColorStop(0, colors[0]);
+    grad.addColorStop(1, colors[1]);
+
+    ctx.beginPath();
+    ctx.arc(px.x, px.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    var hlR = radius * 0.35;
+    var hlGrad = ctx.createRadialGradient(
+      px.x - radius * 0.25, px.y - radius * 0.3, 0,
+      px.x - radius * 0.25, px.y - radius * 0.3, hlR);
+    hlGrad.addColorStop(0, 'rgba(255,255,255,0.45)');
+    hlGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(px.x - radius * 0.25, px.y - radius * 0.3, hlR, 0, Math.PI * 2);
+    ctx.fillStyle = hlGrad;
+    ctx.fill();
+
+    ctx.restore();
+  };
+
+  Game.prototype.renderParticles = function(ctx) {
+    for (var i = 0; i < this.particles.length; i++) {
+      var p = this.particles[i];
+      ctx.globalAlpha = Math.min(1, p.life);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.5, p.size * p.life), 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  // === Events ===
+
+  Game.prototype.bindEvents = function() {
+    var self = this;
+    this.canvas.addEventListener('click', function(e) {
+      self.handleClick(e.clientX, e.clientY);
+    });
+    this.canvas.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        self.handleClick(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+    this.canvas.addEventListener('mousemove', function(e) {
+      var rect = self.canvas.getBoundingClientRect();
+      var px = (e.clientX - rect.left) - self.offsetX;
+      var py = (e.clientY - rect.top) - self.offsetY;
+      var ax = pixelToAxial(px, py);
+      var key = pk(ax.q, ax.r);
+      var isOverPiece = self.positions.has(key) && self.board[key] !== 0;
+      var isOverMove = false;
+      if (self.selected) {
+        for (var i = 0; i < self.validMoves.length; i++) {
+          if (self.validMoves[i].q === ax.q && self.validMoves[i].r === ax.r) {
+            isOverMove = true; break;
+          }
+        }
+      }
+      self.canvas.style.cursor = (isOverPiece || isOverMove) ? 'pointer' : 'default';
+      self.hoveredCell = (isOverPiece || isOverMove) ? ax : null;
+    });
+  };
+
+  window.game = new Game();
+})();
+</script>
+</body>
+</html>

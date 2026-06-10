@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国象棋 Chinese Chess</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(135deg, #1a0a00 0%, #2d1810 50%, #1a0a00 100%);
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-family: 'STKaiti', 'KaiTi', serif;
+  overflow: hidden;
+}
+#header {
+  display: flex; align-items: center; gap: 30px; margin-bottom: 12px;
+}
+h1 {
+  color: #f0d090; font-size: 28px; text-shadow: 0 0 10px rgba(240,208,144,0.5);
+  letter-spacing: 6px;
+}
+#turn-indicator {
+  font-size: 20px; padding: 6px 20px; border-radius: 6px;
+  font-weight: bold; transition: all 0.3s;
+}
+#turn-indicator.red {
+  color: #fff; background: linear-gradient(135deg, #c0392b, #e74c3c);
+  box-shadow: 0 0 15px rgba(231,76,60,0.6);
+}
+#turn-indicator.black {
+  color: #fff; background: linear-gradient(135deg, #2c3e50, #34495e);
+  box-shadow: 0 0 15px rgba(44,62,80,0.6);
+}
+#game-container {
+  position: relative; display: inline-block;
+}
+canvas#board-canvas {
+  display: block; border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 0 60px rgba(0,0,0,0.1);
+}
+canvas#particle-canvas {
+  position: absolute; top: 0; left: 0; pointer-events: none;
+}
+#status-bar {
+  margin-top: 12px; color: #f0d090; font-size: 16px;
+  text-align: center; min-height: 24px;
+}
+#controls {
+  margin-top: 10px; display: flex; gap: 12px;
+}
+#controls button {
+  padding: 8px 24px; font-size: 16px; font-family: inherit;
+  border: 1px solid #f0d090; background: rgba(240,208,144,0.1);
+  color: #f0d090; border-radius: 6px; cursor: pointer;
+  transition: all 0.2s;
+}
+#controls button:hover {
+  background: rgba(240,208,144,0.25);
+  box-shadow: 0 0 10px rgba(240,208,144,0.3);
+}
+#modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); z-index: 100;
+  align-items: center; justify-content: center;
+}
+#modal-overlay.show { display: flex; }
+#modal {
+  background: linear-gradient(135deg, #2d1810, #3d2820);
+  border: 2px solid #f0d090; border-radius: 12px; padding: 40px;
+  text-align: center; color: #f0d090;
+}
+#modal h2 { font-size: 32px; margin-bottom: 12px; }
+#modal p { font-size: 18px; margin-bottom: 24px; }
+#modal button {
+  padding: 10px 36px; font-size: 18px; font-family: inherit;
+  border: 1px solid #f0d090; background: rgba(240,208,144,0.15);
+  color: #f0d090; border-radius: 8px; cursor: pointer;
+  transition: all 0.2s;
+}
+#modal button:hover {
+  background: rgba(240,208,144,0.3);
+}
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>中 国 象 棋</h1>
+  <div id="turn-indicator" class="red">红方走棋</div>
+</div>
+<div id="game-container">
+  <canvas id="board-canvas"></canvas>
+  <canvas id="particle-canvas"></canvas>
+</div>
+<div id="status-bar"></div>
+<div id="controls">
+  <button onclick="game.undo()">悔棋</button>
+  <button onclick="game.restart()">重新开始</button>
+</div>
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title"></h2>
+    <p id="modal-text"></p>
+    <button onclick="game.restart(); document.getElementById('modal-overlay').classList.remove('show');">再来一局</button>
+  </div>
+</div>
+
+<script>
+const COLS = 9, ROWS = 10;
+const CELL = 62, PAD = 44, PIECE_R = 26;
+const W = PAD * 2 + (COLS - 1) * CELL;
+const H = PAD * 2 + (ROWS - 1) * CELL;
+
+const boardCanvas = document.getElementById('board-canvas');
+const boardCtx = boardCanvas.getContext('2d');
+const particleCanvas = document.getElementById('particle-canvas');
+const particleCtx = particleCanvas.getContext('2d');
+boardCanvas.width = particleCanvas.width = W;
+boardCanvas.height = particleCanvas.height = H;
+
+const RED = 'red', BLACK = 'black';
+const GENERAL = 'general', ADVISOR = 'advisor', ELEPHANT = 'elephant';
+const CHARIOT = 'chariot', HORSE = 'horse', CANNON = 'cannon', SOLDIER = 'soldier';
+
+const PIECE_CHARS = {
+  red: { general: '帥', advisor: '仕', elephant: '相', chariot: '俥', horse: '傌', cannon: '炮', soldier: '兵' },
+  black: { general: '將', advisor: '士', elephant: '象', chariot: '車', horse: '馬', cannon: '砲', soldier: '卒' }
+};
+
+function createInitialPieces() {
+  const pieces = [];
+  const bk = [
+    [CHARIOT,0,0],[HORSE,1,0],[ELEPHANT,2,0],[ADVISOR,3,0],[GENERAL,4,0],
+    [ADVISOR,5,0],[ELEPHANT,6,0],[HORSE,7,0],[CHARIOT,8,0],
+    [CANNON,1,2],[CANNON,7,2],
+    [SOLDIER,0,3],[SOLDIER,2,3],[SOLDIER,4,3],[SOLDIER,6,3],[SOLDIER,8,3]
+  ];
+  const rd = [
+    [CHARIOT,0,9],[HORSE,1,9],[ELEPHANT,2,9],[ADVISOR,3,9],[GENERAL,4,9],
+    [ADVISOR,5,9],[ELEPHANT,6,9],[HORSE,7,9],[CHARIOT,8,9],
+    [CANNON,1,7],[CANNON,7,7],
+    [SOLDIER,0,6],[SOLDIER,2,6],[SOLDIER,4,6],[SOLDIER,6,6],[SOLDIER,8,6]
+  ];
+  bk.forEach(([type, col, row]) => pieces.push({ type, color: BLACK, col, row, alive: true }));
+  rd.forEach(([type, col, row]) => pieces.push({ type, color: RED, col, row, alive: true }));
+  return pieces;
+}
+
+// --- Particle System ---
+class ParticleSystem {
+  constructor() { this.particles = []; this.animating = false; }
+  emit(x, y, color, type) {
+    const count = type === 'capture' ? 60 : type === 'check' ? 80 : 25;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = type === 'capture' ? 1 + Math.random() * 4 : type === 'check' ? 2 + Math.random() * 5 : 0.5 + Math.random() * 2;
+      const size = type === 'check' ? 2 + Math.random() * 4 : 1.5 + Math.random() * 3;
+      const life = 40 + Math.random() * 40;
+      this.particles.push({
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        size, life, maxLife: life, color,
+        type: type === 'check' ? 'spark' : 'circle',
+        gravity: type === 'capture' ? 0.06 : 0.02,
+        decay: 0.97 + Math.random() * 0.02
+      });
+    }
+    if (type === 'move') {
+      for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        this.particles.push({
+          x, y, vx: Math.cos(angle) * 0.3, vy: Math.sin(angle) * 0.3,
+          size: 2 + Math.random() * 2, life: 20 + Math.random() * 15, maxLife: 35,
+          color: 'rgba(240,208,144,0.6)', type: 'circle', gravity: -0.01, decay: 0.96
+        });
+      }
+    }
+    if (!this.animating) this.animate();
+  }
+  emitTrail(x1, y1, x2, y2, color) {
+    const steps = 8;
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const x = x1 + (x2 - x1) * t;
+      const y = y1 + (y2 - y1) * t;
+      setTimeout(() => {
+        for (let j = 0; j < 3; j++) {
+          this.particles.push({
+            x: x + (Math.random() - 0.5) * 8, y: y + (Math.random() - 0.5) * 8,
+            vx: (Math.random() - 0.5) * 0.3, vy: -0.2 - Math.random() * 0.3,
+            size: 1.5 + Math.random() * 2, life: 20 + Math.random() * 10, maxLife: 30,
+            color, type: 'circle', gravity: -0.005, decay: 0.95
+          });
+        }
+        if (!this.animating) this.animate();
+      }, i * 30);
+    }
+  }
+  animate() {
+    this.animating = true;
+    particleCtx.clearRect(0, 0, W, H);
+    this.particles = this.particles.filter(p => p.life > 0);
+    for (const p of this.particles) {
+      p.x += p.vx; p.y += p.vy;
+      p.vy += p.gravity; p.vx *= p.decay; p.vy *= p.decay;
+      p.life--;
+      const alpha = Math.min(1, p.life / p.maxLife * 2);
+      particleCtx.save();
+      particleCtx.globalAlpha = alpha;
+      if (p.type === 'spark') {
+        particleCtx.fillStyle = p.color;
+        particleCtx.beginPath();
+        const s = p.size * (0.5 + alpha * 0.5);
+        particleCtx.moveTo(p.x, p.y - s);
+        particleCtx.lineTo(p.x + s * 0.3, p.y);
+        particleCtx.lineTo(p.x, p.y + s);
+        particleCtx.lineTo(p.x - s * 0.3, p.y);
+        particleCtx.fill();
+      } else {
+        particleCtx.fillStyle = p.color;
+        particleCtx.beginPath();
+        particleCtx.arc(p.x, p.y, p.size * (0.3 + alpha * 0.7), 0, Math.PI * 2);
+        particleCtx.fill();
+      }
+      particleCtx.restore();
+    }
+    if (this.particles.length > 0) {
+      requestAnimationFrame(() => this.animate());
+    } else {
+      this.animating = false;
+      particleCtx.clearRect(0, 0, W, H);
+    }
+  }
+}
+
+const particles = new ParticleSystem();
+
+// --- Game ---
+class Game {
+  constructor() { this.restart(); }
+  restart() {
+    this.pieces = createInitialPieces();
+    this.turn = RED;
+    this.selected = null;
+    this.validMoves = [];
+    this.history = [];
+    this.gameOver = false;
+    this.inCheck = false;
+    this.lastMove = null;
+    this.updateUI();
+    this.draw();
+  }
+  pieceAt(col, row) {
+    return this.pieces.find(p => p.alive && p.col === col && p.row === row);
+  }
+  toPixel(col, row) {
+    return [PAD + col * CELL, PAD + row * CELL];
+  }
+  toBoard(px, py) {
+    const col = Math.round((px - PAD) / CELL);
+    const row = Math.round((py - PAD) / CELL);
+    if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+    const [cx, cy] = this.toPixel(col, row);
+    if (Math.hypot(px - cx, py - cy) > PIECE_R + 6) return null;
+    return [col, row];
+  }
+  onClick(e) {
+    if (this.gameOver) return;
+    const rect = boardCanvas.getBoundingClientRect();
+    const scaleX = W / rect.width, scaleY = H / rect.height;
+    const px = (e.clientX - rect.left) * scaleX;
+    const py = (e.clientY - rect.top) * scaleY;
+    const pos = this.toBoard(px, py);
+    if (!pos) return;
+    const [col, row] = pos;
+    const clicked = this.pieceAt(col, row);
+
+    if (this.selected) {
+      if (clicked && clicked.color === this.turn) {
+        this.selected = clicked;
+        this.validMoves = this.getValidMoves(clicked);
+        this.draw();
+        return;
+      }
+      if (this.validMoves.some(([c, r]) => c === col && r === row)) {
+        this.move(this.selected, col, row);
+        return;
+      }
+      this.selected = null;
+      this.validMoves = [];
+      this.draw();
+      return;
+    }
+    if (clicked && clicked.color === this.turn) {
+      this.selected = clicked;
+      this.validMoves = this.getValidMoves(clicked);
+      this.draw();
+    }
+  }
+  move(piece, toCol, toRow) {
+    const captured = this.pieceAt(toCol, toRow);
+    const fromCol = piece.col, fromRow = piece.row;
+    this.history.push({
+      piece, fromCol, fromRow, captured,
+      turn: this.turn
+    });
+
+    piece.col = toCol;
+    piece.row = toRow;
+    this.lastMove = { fromCol, fromRow, toCol, toRow };
+
+    const [fx, fy] = this.toPixel(fromCol, fromRow);
+    const [tx, ty] = this.toPixel(toCol, toRow);
+    const trailColor = piece.color === RED ? 'rgba(231,76,60,0.4)' : 'rgba(52,73,94,0.4)';
+    particles.emitTrail(fx, fy, tx, ty, trailColor);
+
+    if (captured) {
+      captured.alive = false;
+      const capColor = captured.color === RED ? 'rgba(231,76,60,0.8)' : 'rgba(52,73,94,0.8)';
+      setTimeout(() => particles.emit(tx, ty, capColor, 'capture'), 100);
+    }
+
+    this.turn = this.turn === RED ? BLACK : RED;
+    this.selected = null;
+    this.validMoves = [];
+
+    this.inCheck = this.isInCheck(this.turn);
+    if (this.inCheck) {
+      const gen = this.pieces.find(p => p.alive && p.type === GENERAL && p.color === this.turn);
+      if (gen) {
+        const [gx, gy] = this.toPixel(gen.col, gen.row);
+        setTimeout(() => particles.emit(gx, gy, 'rgba(255,215,0,0.9)', 'check'), 200);
+      }
+    }
+
+    if (!this.hasLegalMoves(this.turn)) {
+      this.gameOver = true;
+      const winner = this.turn === RED ? '黑方' : '红方';
+      const loser = this.turn === RED ? '红方' : '黑方';
+      setTimeout(() => {
+        document.getElementById('modal-title').textContent = winner + ' 获胜！';
+        document.getElementById('modal-text').textContent =
+          this.inCheck ? loser + ' 被将死' : loser + ' 无棋可走（困毙）';
+        document.getElementById('modal-overlay').classList.add('show');
+      }, 600);
+    }
+
+    this.updateUI();
+    this.draw();
+  }
+  undo() {
+    if (this.history.length === 0 || this.gameOver) return;
+    const last = this.history.pop();
+    last.piece.col = last.fromCol;
+    last.piece.row = last.fromRow;
+    if (last.captured) last.captured.alive = true;
+    this.turn = last.turn;
+    this.selected = null;
+    this.validMoves = [];
+    this.inCheck = this.isInCheck(this.turn);
+    this.lastMove = this.history.length > 0
+      ? { fromCol: this.history[this.history.length - 1].fromCol,
+          fromRow: this.history[this.history.length - 1].fromRow,
+          toCol: this.history[this.history.length - 1].piece.col,
+          toRow: this.history[this.history.length - 1].piece.row }
+      : null;
+    this.updateUI();
+    this.draw();
+  }
+  updateUI() {
+    const el = document.getElementById('turn-indicator');
+    el.className = this.turn;
+    el.textContent = this.turn === RED ? '红方走棋' : '黑方走棋';
+    const status = document.getElementById('status-bar');
+    if (this.inCheck && !this.gameOver) {
+      status.textContent = (this.turn === RED ? '红方' : '黑方') + ' 被将军！';
+    } else {
+      status.textContent = '';
+    }
+  }
+
+  // --- Move generation ---
+  getRawMoves(piece) {
+    const moves = [];
+    const { type, color, col: c, row: r } = piece;
+    const inPalace = (nc, nr) => {
+      if (nc < 3 || nc > 5) return false;
+      return color === RED ? (nr >= 7 && nr <= 9) : (nr >= 0 && nr <= 2);
+    };
+    const ownHalf = (nr) => color === RED ? nr >= 5 : nr <= 4;
+    const addIfValid = (nc, nr) => {
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) return;
+      const occ = this.pieceAt(nc, nr);
+      if (occ && occ.color === color) return;
+      moves.push([nc, nr]);
+    };
+
+    switch (type) {
+      case GENERAL:
+        [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dc, dr]) => {
+          const nc = c + dc, nr = r + dr;
+          if (inPalace(nc, nr)) addIfValid(nc, nr);
+        });
+        break;
+      case ADVISOR:
+        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dc, dr]) => {
+          const nc = c + dc, nr = r + dr;
+          if (inPalace(nc, nr)) addIfValid(nc, nr);
+        });
+        break;
+      case ELEPHANT:
+        [[2,2],[2,-2],[-2,2],[-2,-2]].forEach(([dc, dr]) => {
+          const nc = c + dc, nr = r + dr;
+          const bc = c + dc / 2, br = r + dr / 2;
+          if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS && ownHalf(nr) && !this.pieceAt(bc, br)) {
+            addIfValid(nc, nr);
+          }
+        });
+        break;
+      case CHARIOT:
+        [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dc, dr]) => {
+          for (let i = 1; i < 10; i++) {
+            const nc = c + dc * i, nr = r + dr * i;
+            if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+            const occ = this.pieceAt(nc, nr);
+            if (occ) { if (occ.color !== color) moves.push([nc, nr]); break; }
+            moves.push([nc, nr]);
+          }
+        });
+        break;
+      case HORSE:
+        [[1,2,0,1],[1,-2,0,-1],[-1,2,0,1],[-1,-2,0,-1],
+         [2,1,1,0],[2,-1,1,0],[-2,1,-1,0],[-2,-1,-1,0]].forEach(([dc, dr, bc, br]) => {
+          const nc = c + dc, nr = r + dr;
+          if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS && !this.pieceAt(c + bc, r + br)) {
+            addIfValid(nc, nr);
+          }
+        });
+        break;
+      case CANNON:
+        [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dc, dr]) => {
+          let jumped = false;
+          for (let i = 1; i < 10; i++) {
+            const nc = c + dc * i, nr = r + dr * i;
+            if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) break;
+            const occ = this.pieceAt(nc, nr);
+            if (!jumped) {
+              if (occ) { jumped = true; } else { moves.push([nc, nr]); }
+            } else {
+              if (occ) { if (occ.color !== color) moves.push([nc, nr]); break; }
+            }
+          }
+        });
+        break;
+      case SOLDIER: {
+        const fwd = color === RED ? -1 : 1;
+        addIfValid(c, r + fwd);
+        if (!ownHalf(r)) {
+          addIfValid(c - 1, r);
+          addIfValid(c + 1, r);
+        }
+        break;
+      }
+    }
+    return moves;
+  }
+  generalsFaceEachOther() {
+    const rg = this.pieces.find(p => p.alive && p.type === GENERAL && p.color === RED);
+    const bg = this.pieces.find(p => p.alive && p.type === GENERAL && p.color === BLACK);
+    if (!rg || !bg || rg.col !== bg.col) return false;
+    for (let r = Math.min(rg.row, bg.row) + 1; r < Math.max(rg.row, bg.row); r++) {
+      if (this.pieceAt(rg.col, r)) return false;
+    }
+    return true;
+  }
+  getValidMoves(piece) {
+    const raw = this.getRawMoves(piece);
+    return raw.filter(([nc, nr]) => {
+      const captured = this.pieceAt(nc, nr);
+      const origCol = piece.col, origRow = piece.row;
+      piece.col = nc; piece.row = nr;
+      if (captured) captured.alive = false;
+      const legal = !this.generalsFaceEachOther() && !this.isKingInCheck(piece.color);
+      piece.col = origCol; piece.row = origRow;
+      if (captured) captured.alive = true;
+      return legal;
+    });
+  }
+  isKingInCheck(color) {
+    const king = this.pieces.find(p => p.alive && p.type === GENERAL && p.color === color);
+    if (!king) return true;
+    const opponent = color === RED ? BLACK : RED;
+    return this.pieces.filter(p => p.alive && p.color === opponent)
+      .some(p => this.getRawMoves(p).some(([c, r]) => c === king.col && r === king.row));
+  }
+  isInCheck(color) { return this.isKingInCheck(color); }
+  hasLegalMoves(color) {
+    return this.pieces.filter(p => p.alive && p.color === color)
+      .some(p => this.getValidMoves(p).length > 0);
+  }
+
+  // --- Drawing ---
+  draw() {
+    this.drawBoard();
+    this.drawPieces();
+  }
+  drawBoard() {
+    const ctx = boardCtx;
+    // Background
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#e8c87a');
+    grad.addColorStop(0.5, '#f0d890');
+    grad.addColorStop(1, '#e0c070');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Wood grain texture
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    for (let i = 0; i < 40; i++) {
+      ctx.strokeStyle = '#8B6914';
+      ctx.lineWidth = 0.5 + Math.random() * 1.5;
+      ctx.beginPath();
+      const y = Math.random() * H;
+      ctx.moveTo(0, y);
+      for (let x = 0; x < W; x += 20) {
+        ctx.lineTo(x, y + Math.sin(x * 0.01) * 3 + (Math.random() - 0.5) * 2);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 1.2;
+
+    // Grid lines
+    for (let r = 0; r < ROWS; r++) {
+      const y = PAD + r * CELL;
+      ctx.beginPath();
+      ctx.moveTo(PAD, y);
+      ctx.lineTo(PAD + (COLS - 1) * CELL, y);
+      ctx.stroke();
+    }
+    for (let c = 0; c < COLS; c++) {
+      if (c === 0 || c === COLS - 1) {
+        ctx.beginPath();
+        ctx.moveTo(PAD + c * CELL, PAD);
+        ctx.lineTo(PAD + c * CELL, PAD + (ROWS - 1) * CELL);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(PAD + c * CELL, PAD);
+        ctx.lineTo(PAD + c * CELL, PAD + 4 * CELL);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(PAD + c * CELL, PAD + 5 * CELL);
+        ctx.lineTo(PAD + c * CELL, PAD + (ROWS - 1) * CELL);
+        ctx.stroke();
+      }
+    }
+
+    // Palace diagonals
+    ctx.lineWidth = 0.8;
+    [[3,0,5,2],[5,0,3,2],[3,7,5,9],[5,7,3,9]].forEach(([c1,r1,c2,r2]) => {
+      ctx.beginPath();
+      ctx.moveTo(PAD+c1*CELL, PAD+r1*CELL);
+      ctx.lineTo(PAD+c2*CELL, PAD+r2*CELL);
+      ctx.stroke();
+    });
+
+    // River text
+    ctx.save();
+    ctx.font = 'bold 26px STKaiti, KaiTi, serif';
+    ctx.fillStyle = 'rgba(90,58,26,0.35)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const ry = PAD + 4.5 * CELL;
+    ctx.fillText('楚  河', PAD + 1.8 * CELL, ry);
+    ctx.fillText('漢  界', PAD + 6.2 * CELL, ry);
+    ctx.restore();
+
+    // Star points (cannon & soldier positions)
+    const starPoints = [[1,2],[7,2],[0,3],[2,3],[4,3],[6,3],[8,3],
+                        [1,7],[7,7],[0,6],[2,6],[4,6],[6,6],[8,6]];
+    starPoints.forEach(([c, r]) => this.drawStar(PAD + c * CELL, PAD + r * CELL, c));
+
+    // Last move highlight
+    if (this.lastMove) {
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = '#ff6600';
+      const {fromCol, fromRow, toCol, toRow} = this.lastMove;
+      [this.toPixel(fromCol, fromRow), this.toPixel(toCol, toRow)].forEach(([x,y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, PIECE_R + 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    // Valid move indicators
+    this.validMoves.forEach(([c, r]) => {
+      const [x, y] = this.toPixel(c, r);
+      const occ = this.pieceAt(c, r);
+      ctx.save();
+      if (occ) {
+        ctx.strokeStyle = 'rgba(255,60,60,0.6)';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.arc(x, y, PIECE_R + 3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(60,160,60,0.35)';
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+  }
+  drawStar(x, y, col) {
+    const ctx = boardCtx;
+    const s = 4, g = 3;
+    ctx.save();
+    ctx.strokeStyle = '#5a3a1a';
+    ctx.lineWidth = 1;
+    const dirs = [];
+    if (col > 0) dirs.push([-1, -1], [-1, 1]);
+    if (col < COLS - 1) dirs.push([1, -1], [1, 1]);
+    dirs.forEach(([dx, dy]) => {
+      ctx.beginPath();
+      ctx.moveTo(x + dx * g, y + dy * g);
+      ctx.lineTo(x + dx * (g + s), y + dy * g);
+      ctx.moveTo(x + dx * g, y + dy * g);
+      ctx.lineTo(x + dx * g, y + dy * (g + s));
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+  drawPieces() {
+    const ctx = boardCtx;
+    this.pieces.filter(p => p.alive).forEach(p => {
+      const [x, y] = this.toPixel(p.col, p.row);
+      const isSelected = this.selected === p;
+
+      // Shadow
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.beginPath();
+      ctx.ellipse(x + 2, y + 3, PIECE_R, PIECE_R * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Piece body
+      const bodyGrad = ctx.createRadialGradient(x - 5, y - 5, 2, x, y, PIECE_R);
+      bodyGrad.addColorStop(0, '#fff8e8');
+      bodyGrad.addColorStop(0.6, '#f0dca0');
+      bodyGrad.addColorStop(1, '#c8a860');
+      ctx.save();
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.arc(x, y, PIECE_R, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = p.color === RED ? '#a03020' : '#2c3e50';
+      ctx.lineWidth = isSelected ? 3 : 2;
+      ctx.stroke();
+
+      // Inner ring
+      ctx.strokeStyle = p.color === RED ? '#c04030' : '#3d5060';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, PIECE_R - 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Character
+      ctx.save();
+      ctx.font = `bold 24px STKaiti, KaiTi, serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = p.color === RED ? '#b02010' : '#1a2a3a';
+      ctx.fillText(PIECE_CHARS[p.color][p.type], x, y + 1);
+      ctx.restore();
+
+      // Selection glow
+      if (isSelected) {
+        ctx.save();
+        ctx.shadowColor = p.color === RED ? '#ff4444' : '#4488aa';
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = p.color === RED ? 'rgba(255,80,60,0.7)' : 'rgba(68,136,170,0.7)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(x, y, PIECE_R + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Check indicator on general
+      if (this.inCheck && p.type === GENERAL && p.color === this.turn) {
+        ctx.save();
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, PIECE_R + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+}
+
+const game = new Game();
+boardCanvas.addEventListener('click', (e) => game.onClick(e));
+</script>
+</body>
+</html>

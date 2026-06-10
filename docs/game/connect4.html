@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四子棋 Connect 4</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(135deg, #0c0e1a 0%, #1a1c3a 50%, #0c0e1a 100%);
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-family: 'Segoe UI', sans-serif;
+  overflow: hidden; color: #fff;
+}
+h1 {
+  font-size: 2rem; margin-bottom: 8px; letter-spacing: 2px;
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcbff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+#status {
+  font-size: 1.1rem; margin-bottom: 12px; height: 32px;
+  display: flex; align-items: center; gap: 10px; transition: opacity .3s;
+}
+#status .dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-block; box-shadow: 0 0 12px currentColor;
+}
+#gameArea { position: relative; }
+canvas { display: block; border-radius: 16px; }
+#overlay {
+  position: absolute; inset: 0; display: none; flex-direction: column;
+  align-items: center; justify-content: center; background: rgba(0,0,0,.55);
+  border-radius: 16px; z-index: 10;
+}
+#overlay.show { display: flex; }
+#overlay h2 { font-size: 2rem; margin-bottom: 16px; }
+#overlay button, #restartBtn {
+  padding: 10px 32px; font-size: 1rem; border: none; border-radius: 8px;
+  cursor: pointer; background: linear-gradient(135deg, #6bcbff, #4facfe);
+  color: #fff; font-weight: 600; letter-spacing: 1px; transition: transform .15s;
+}
+#overlay button:hover, #restartBtn:hover { transform: scale(1.06); }
+#bottomBar {
+  margin-top: 14px; display: flex; gap: 16px; align-items: center;
+}
+#restartBtn { background: linear-gradient(135deg, #ff6b6b, #ee5a24); }
+#score {
+  display: flex; gap: 24px; font-size: .95rem;
+}
+#score span { display: flex; align-items: center; gap: 6px; }
+#score .sdot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>四子棋 Connect 4</h1>
+<div id="status"><span class="dot" id="turnDot"></span><span id="turnText"></span></div>
+<div id="gameArea">
+  <canvas id="board"></canvas>
+  <div id="overlay"><h2 id="winMsg"></h2><button onclick="resetGame()">再来一局</button></div>
+</div>
+<div id="bottomBar">
+  <div id="score">
+    <span><span class="sdot" style="background:#ff6b6b"></span> 红方: <b id="s1">0</b></span>
+    <span><span class="sdot" style="background:#ffd93d"></span> 黄方: <b id="s2">0</b></span>
+  </div>
+  <button id="restartBtn" onclick="resetGame()">重新开始</button>
+</div>
+<script>
+const COLS = 7, ROWS = 6, CELL = 80, PAD = 16, RAD = 32;
+const W = COLS * CELL + PAD * 2, H = ROWS * CELL + PAD * 2;
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+canvas.width = W; canvas.height = H;
+
+const COLORS = [null, '#ff6b6b', '#ffd93d'];
+const GLOW   = [null, 'rgba(255,107,107,.45)', 'rgba(255,217,61,.45)'];
+const LIGHT  = [null, '#ff9f9f', '#ffe680'];
+
+let grid, turn, gameOver, particles, dropAnim, hoverCol, scores, winCells;
+
+function init() {
+  grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  turn = 1; gameOver = false; particles = []; dropAnim = null;
+  hoverCol = -1; winCells = [];
+  document.getElementById('overlay').classList.remove('show');
+  updateStatus();
+}
+
+function resetGame() { init(); }
+
+scores = [0, 0, 0];
+
+function updateStatus() {
+  const dot = document.getElementById('turnDot');
+  const txt = document.getElementById('turnText');
+  dot.style.background = COLORS[turn];
+  dot.style.color = COLORS[turn];
+  txt.textContent = turn === 1 ? '红方落子' : '黄方落子';
+}
+
+function colX(c) { return PAD + c * CELL + CELL / 2; }
+function rowY(r) { return PAD + r * CELL + CELL / 2; }
+
+function getColFromX(x) {
+  const c = Math.floor((x - PAD) / CELL);
+  return c >= 0 && c < COLS ? c : -1;
+}
+
+function lowestEmpty(c) {
+  for (let r = ROWS - 1; r >= 0; r--) if (grid[r][c] === 0) return r;
+  return -1;
+}
+
+// --- Particles ---
+function spawnDropParticles(r, c, color) {
+  const cx = colX(c), cy = rowY(r);
+  for (let i = 0; i < 28; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 3.5;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1.5,
+      life: 1, decay: .015 + Math.random() * .02,
+      radius: 2 + Math.random() * 3,
+      color
+    });
+  }
+}
+
+function spawnWinParticles() {
+  winCells.forEach(([r, c]) => {
+    const cx = colX(c), cy = rowY(r);
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 5;
+      const hue = Math.random() * 360;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        life: 1, decay: .008 + Math.random() * .012,
+        radius: 2.5 + Math.random() * 4,
+        color: `hsl(${hue},90%,65%)`
+      });
+    }
+  });
+}
+
+function spawnFirework() {
+  const x = PAD + Math.random() * (W - PAD * 2);
+  const y = PAD + Math.random() * (H - PAD * 2);
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    const hue = Math.random() * 360;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1, decay: .01 + Math.random() * .015,
+      radius: 2 + Math.random() * 3,
+      color: `hsl(${hue},85%,60%)`
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += .08;
+    p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// --- Win check ---
+const DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+function checkWin(r, c, p) {
+  for (const [dr, dc] of DIRS) {
+    let cells = [[r, c]];
+    for (let d = 1; d < 4; d++) {
+      const nr = r + dr * d, nc = c + dc * d;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === p) cells.push([nr, nc]);
+      else break;
+    }
+    for (let d = 1; d < 4; d++) {
+      const nr = r - dr * d, nc = c - dc * d;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === p) cells.push([nr, nc]);
+      else break;
+    }
+    if (cells.length >= 4) return cells;
+  }
+  return null;
+}
+
+function isDraw() { return grid[0].every(v => v !== 0); }
+
+// --- Drop animation ---
+function startDrop(c, player) {
+  const targetRow = lowestEmpty(c);
+  if (targetRow < 0) return;
+  dropAnim = { c, player, y: -CELL / 2, targetY: rowY(targetRow), row: targetRow, vy: 0 };
+}
+
+function updateDrop() {
+  if (!dropAnim) return;
+  dropAnim.vy += .8;
+  dropAnim.y += dropAnim.vy;
+  if (dropAnim.y >= dropAnim.targetY) {
+    dropAnim.y = dropAnim.targetY;
+    const { row, c, player } = dropAnim;
+    grid[row][c] = player;
+    spawnDropParticles(row, c, COLORS[player]);
+    const win = checkWin(row, c, player);
+    if (win) {
+      winCells = win;
+      gameOver = true;
+      scores[player]++;
+      document.getElementById('s1').textContent = scores[1];
+      document.getElementById('s2').textContent = scores[2];
+      spawnWinParticles();
+      setTimeout(() => {
+        document.getElementById('winMsg').textContent =
+          (player === 1 ? '🔴 红方' : '🟡 黄方') + ' 获胜!';
+        document.getElementById('overlay').classList.add('show');
+      }, 600);
+    } else if (isDraw()) {
+      gameOver = true;
+      setTimeout(() => {
+        document.getElementById('winMsg').textContent = '🤝 平局!';
+        document.getElementById('overlay').classList.add('show');
+      }, 400);
+    } else {
+      turn = turn === 1 ? 2 : 1;
+      updateStatus();
+    }
+    dropAnim = null;
+  }
+}
+
+// --- Drawing ---
+function drawBoard() {
+  // board background
+  ctx.fillStyle = '#1e3a5f';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, W, H, 16);
+  ctx.fill();
+
+  // grid holes
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cx = colX(c), cy = rowY(r);
+      // hole shadow
+      ctx.beginPath();
+      ctx.arc(cx, cy, RAD + 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a1628';
+      ctx.fill();
+      // hole
+      ctx.beginPath();
+      ctx.arc(cx, cy, RAD, 0, Math.PI * 2);
+      ctx.fillStyle = '#0d1f3c';
+      ctx.fill();
+    }
+  }
+
+  // pieces
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] === 0) continue;
+      const cx = colX(c), cy = rowY(r), p = grid[r][c];
+      // glow
+      const grad = ctx.createRadialGradient(cx, cy - 6, 4, cx, cy, RAD);
+      grad.addColorStop(0, LIGHT[p]);
+      grad.addColorStop(1, COLORS[p]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, RAD - 2, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // shine
+      ctx.beginPath();
+      ctx.arc(cx - 8, cy - 10, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,.25)';
+      ctx.fill();
+    }
+  }
+
+  // win highlight
+  if (winCells.length) {
+    winCells.forEach(([r, c]) => {
+      const cx = colX(c), cy = rowY(r);
+      ctx.beginPath();
+      ctx.arc(cx, cy, RAD + 4, 0, Math.PI * 2);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // drop animation piece
+  if (dropAnim) {
+    const cx = colX(dropAnim.c);
+    const grad = ctx.createRadialGradient(cx, dropAnim.y - 6, 4, cx, dropAnim.y, RAD);
+    grad.addColorStop(0, LIGHT[dropAnim.player]);
+    grad.addColorStop(1, COLORS[dropAnim.player]);
+    ctx.beginPath();
+    ctx.arc(cx, dropAnim.y, RAD - 2, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // hover preview
+  if (hoverCol >= 0 && !gameOver && !dropAnim) {
+    const r = lowestEmpty(hoverCol);
+    if (r >= 0) {
+      const cx = colX(hoverCol), cy = rowY(r);
+      ctx.globalAlpha = .35;
+      ctx.beginPath();
+      ctx.arc(cx, cy, RAD - 2, 0, Math.PI * 2);
+      ctx.fillStyle = COLORS[turn];
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// --- Firework timer for win ---
+let fireworkTimer = 0;
+
+// --- Main loop ---
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  updateDrop();
+  updateParticles();
+  drawBoard();
+  drawParticles();
+  if (gameOver && winCells.length) {
+    fireworkTimer++;
+    if (fireworkTimer % 15 === 0 && fireworkTimer < 180) spawnFirework();
+  }
+  requestAnimationFrame(loop);
+}
+
+// --- Input ---
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const x = (e.clientX - rect.left) * scaleX;
+  hoverCol = getColFromX(x);
+});
+
+canvas.addEventListener('mouseleave', () => { hoverCol = -1; });
+
+canvas.addEventListener('click', e => {
+  if (gameOver || dropAnim) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const x = (e.clientX - rect.left) * scaleX;
+  const c = getColFromX(x);
+  if (c < 0 || lowestEmpty(c) < 0) return;
+  startDrop(c, turn);
+});
+
+// Touch support
+canvas.addEventListener('touchend', e => {
+  if (gameOver || dropAnim) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const touch = e.changedTouches[0];
+  const x = (touch.clientX - rect.left) * scaleX;
+  const c = getColFromX(x);
+  if (c < 0 || lowestEmpty(c) < 0) return;
+  startDrop(c, turn);
+});
+
+init();
+loop();
+</script>
+</body>
+</html>
