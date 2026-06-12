@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Mastermind 猜密码</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#e0e0e0}
+canvas#particles{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100}
+.container{position:relative;z-index:10;width:min(96vw,520px);background:rgba(20,18,50,0.92);border-radius:24px;padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 80px rgba(100,80,220,0.15);backdrop-filter:blur(12px);border:1px solid rgba(120,100,240,0.2)}
+h1{text-align:center;font-size:1.6rem;font-weight:700;background:linear-gradient(90deg,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;letter-spacing:1px}
+.subtitle{text-align:center;font-size:.82rem;color:#999;margin-bottom:20px}
+.status-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:.85rem}
+.round-info{color:#a78bfa;font-weight:600}
+.phase-info{color:#f472b6;font-weight:600}
+.board{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;background:rgba(255,255,255,0.03);transition:all .3s;min-height:48px}
+.row.active{background:rgba(167,139,250,0.12);box-shadow:0 0 12px rgba(167,139,250,0.15)}
+.row-num{width:22px;font-size:.75rem;color:#666;text-align:center;flex-shrink:0}
+.pegs{display:flex;gap:6px;flex:1}
+.peg{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.peg:hover{border-color:rgba(167,139,250,0.5);transform:scale(1.08)}
+.peg.filled{border-color:rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.feedback{display:grid;grid-template-columns:1fr 1fr;gap:3px;flex-shrink:0;width:36px}
+.fb-dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.06);transition:all .4s}
+.fb-dot.black{background:#222;border-color:#888;box-shadow:0 0 4px rgba(0,0,0,0.5)}
+.fb-dot.white{background:#eee;border-color:#fff;box-shadow:0 0 4px rgba(255,255,255,0.4)}
+.color-picker{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+.color-btn{width:40px;height:40px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:all .2s;box-shadow:0 3px 10px rgba(0,0,0,0.3)}
+.color-btn:hover{transform:scale(1.15)}
+.color-btn.selected{border-color:#fff;transform:scale(1.15);box-shadow:0 0 16px rgba(255,255,255,0.3)}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{padding:10px 28px;border:none;border-radius:12px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;box-shadow:0 4px 15px rgba(124,58,237,0.4)}
+.btn-secondary{background:rgba(255,255,255,0.08);color:#ccc;border:1px solid rgba(255,255,255,0.1)}
+.btn-danger{background:linear-gradient(135deg,#dc2626,#f87171);color:#fff;box-shadow:0 4px 15px rgba(220,38,38,0.3)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.setup{display:flex;flex-direction:column;align-items:center;gap:16px}
+.setup h2{font-size:1.15rem;color:#c4b5fd}
+.setup-pegs{display:flex;gap:8px}
+.setup-peg{width:44px;height:44px;border-radius:50%;border:2px dashed rgba(167,139,250,0.4);background:rgba(255,255,255,0.04);cursor:pointer;transition:all .2s}
+.setup-peg.filled{border-style:solid;border-color:rgba(255,255,255,0.3)}
+.setup-peg:hover{border-color:#a78bfa;transform:scale(1.1)}
+.setup .hint{font-size:.8rem;color:#888}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:50;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s}
+.overlay.show{opacity:1;pointer-events:auto}
+.modal{background:rgba(30,27,70,0.97);border-radius:20px;padding:32px;text-align:center;border:1px solid rgba(120,100,240,0.3);box-shadow:0 20px 60px rgba(0,0,0,0.5);max-width:90vw}
+.modal h2{font-size:1.5rem;margin-bottom:8px}
+.modal p{color:#aaa;margin-bottom:20px;font-size:.9rem}
+.modal .btn{margin:4px}
+.hidden{display:none!important}
+.secret-row{display:flex;gap:6px;justify-content:center;margin-bottom:14px}
+.secret-peg{width:38px;height:38px;border-radius:50%;border:2px solid rgba(167,139,250,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:rgba(20,18,50,0.8)}
+.secret-peg.revealed{border-color:rgba(255,255,255,0.3)}
+.erase-btn{width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;color:#999}
+.erase-btn:hover{background:rgba(255,80,80,0.15);border-color:rgba(255,80,80,0.3);color:#f88}
+.erase-btn.active{background:rgba(255,80,80,0.2);border-color:rgba(255,80,80,0.5);color:#f88}
+.rules{font-size:.75rem;color:#666;text-align:center;margin-top:12px;line-height:1.5}
+
+/***** 移动端安全补丁 v2（不破坏原布局） *****/
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+  padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+}
+button,.btn,[onclick],.cell,.tile,.square,.board-cell{cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+canvas{max-width:100vw;display:block}
+
+@media (max-width:768px){
+  h1{font-size:clamp(1.2rem,6vw,1.8rem)!important;margin:8px 0!important;letter-spacing:1px!important}
+  h2{font-size:clamp(1rem,5vw,1.3rem)!important}
+  h3{font-size:clamp(.9rem,4.5vw,1.1rem)!important}
+  p{font-size:clamp(.85rem,3.5vw,1rem)!important}
+  .btn,.button{padding:12px 20px!important;font-size:1rem!important;min-height:44px;border-radius:10px!important}
+  .btn-sm{font-size:.9rem!important;padding:8px 14px!important}
+  input,select,textarea{font-size:16px!important;padding:10px!important;max-width:100%}
+  .modal,.popup,.dialog{max-width:92vw!important;padding:16px!important;margin:8px!important}
+  .score,.badge,.tag{font-size:.85rem!important;padding:4px 10px!important}
+  [style*="width:120"],[style*="width: 120"]{width:clamp(40px,12vw,72px)!important;height:clamp(40px,12vw,72px)!important;font-size:clamp(1.5rem,6vw,2.5rem)!important}
+  [style*="width:100"],[style*="width: 100"]{width:clamp(40px,11vw,80px)!important;height:clamp(40px,11vw,80px)!important;font-size:clamp(1.4rem,5.5vw,2.2rem)!important}
+  [style*="width:80"],[style*="width: 80"]{width:clamp(36px,10vw,70px)!important;height:clamp(36px,10vw,70px)!important}
+  [style*="width:60"],[style*="width: 60"]{width:clamp(32px,9vw,60px)!important;height:clamp(32px,9vw,60px)!important}
+  [style*="width:50"],[style*="width: 50"]{width:clamp(28px,8vw,50px)!important;height:clamp(28px,8vw,50px)!important}
+  [style*="width:40"],[style*="width: 40"]{width:clamp(24px,7vw,40px)!important;height:clamp(24px,7vw,40px)!important}
+  [style*="width:30"],[style*="width: 30"]{width:clamp(20px,6vw,30px)!important;height:clamp(20px,6vw,30px)!important}
+  [style*="width:480"],[style*="width: 480"]{width:min(90vw,420px)!important}
+  [style*="width:600"],[style*="width: 600"]{width:min(92vw,500px)!important}
+  [style*="width:800"],[style*="width: 800"]{width:min(94vw,600px)!important}
+  [style*="width:1000"],[style*="width: 1000"]{width:min(96vw,700px)!important}
+  [style*="height:480"],[style*="height: 480"]{height:auto!important;aspect-ratio:1!important}
+  [style*="height:600"],[style*="height: 600"]{height:auto!important;aspect-ratio:1!important}
+  [style*="height:800"],[style*="height: 800"]{height:auto!important;aspect-ratio:1!important}
+}
+@media (max-width:480px){
+  body{padding:6px!important}
+  h1{font-size:1.15rem!important}
+}
+@media (hover:none) and (pointer:coarse){
+  *:hover{transform:none!important}
+}
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div class="container" id="app"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+const COLORS = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#e67e22','#9b59b6'];
+const COLOR_NAMES = ['红','蓝','绿','黄','橙','紫'];
+const CODE_LEN = 4;
+const MAX_ROUNDS = 10;
+const NUM_COLORS = 6;
+
+let state = {};
+let selectedColor = 0;
+let eraseMode = false;
+
+function init() {
+  state = { phase: 'setup', secret: [], guess: [], history: [], round: 0, winner: null };
+  selectedColor = 0;
+  eraseMode = false;
+  render();
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (state.phase === 'setup') {
+    app.innerHTML = renderSetup();
+    bindSetup();
+  } else {
+    app.innerHTML = renderGame();
+    bindGame();
+  }
+}
+
+function renderSetup() {
+  const pegs = state.secret.map((c, i) =>
+    `<div class="setup-peg ${c !== null ? 'filled' : ''}" style="${c !== null ? 'background:' + COLORS[c] : ''}" data-idx="${i}"></div>`
+  ).join('');
+  const empty = state.secret.filter(x => x !== null).length;
+  const colorBtns = Array.from({length: NUM_COLORS}, (_, i) =>
+    `<div class="color-btn ${selectedColor === i ? 'selected' : ''}" style="background:${COLORS[i]}" data-ci="${i}"></div>`
+  ).join('');
+  return `
+    <h1>Mastermind 猜密码</h1>
+    <p class="subtitle">经典逻辑推理 · 双人对战</p>
+    <div class="setup">
+      <h2>玩家A 设置密码</h2>
+      <p class="hint">选择颜色后点击位置放置，共${CODE_LEN}位 (可重复)</p>
+      <div class="setup-pegs">${pegs}</div>
+      <div class="color-picker">${colorBtns}</div>
+      <div class="actions">
+        <button class="btn btn-secondary" id="clearBtn">清除</button>
+        <button class="btn btn-primary" id="confirmBtn" ${empty < CODE_LEN ? 'disabled' : ''}>确认密码 →</button>
+      </div>
+    </div>
+    <p class="rules">🔴 黑钉 = 颜色和位置都对 &nbsp; ⚪ 白钉 = 颜色对但位置错<br>${MAX_ROUNDS}回合内猜中则猜码者胜</p>`;
+}
+
+function bindSetup() {
+  document.querySelectorAll('.setup .color-btn').forEach(el => {
+    el.onclick = () => { selectedColor = +el.dataset.ci; eraseMode = false; render(); };
+  });
+  document.querySelectorAll('.setup-peg').forEach(el => {
+    el.onclick = () => {
+      const idx = +el.dataset.idx;
+      state.secret[idx] = selectedColor;
+      render();
+    };
+  });
+  document.getElementById('clearBtn').onclick = () => { state.secret = []; render(); };
+  const cb = document.getElementById('confirmBtn');
+  if (cb && !cb.disabled) cb.onclick = () => {
+    if (state.secret.length === CODE_LEN) {
+      state.phase = 'play';
+      state.guess = Array(CODE_LEN).fill(null);
+      state.round = 1;
+      render();
+    }
+  };
+}
+
+function renderGame() {
+  const secretDisplay = state.secret.map(c =>
+    `<div class="secret-peg" style="background:rgba(20,18,50,0.9)">?</div>`
+  ).join('');
+
+  const rows = [];
+  for (let i = MAX_ROUNDS; i >= 1; i--) {
+    const h = state.history[i - 1];
+    const isActive = i === state.round && !state.winner;
+    const rowPegs = [];
+    for (let j = 0; j < CODE_LEN; j++) {
+      if (h) {
+        rowPegs.push(`<div class="peg filled" style="background:${COLORS[h.guess[j]]}"></div>`);
+      } else if (isActive) {
+        const g = state.guess[j];
+        rowPegs.push(`<div class="peg ${g !== null ? 'filled' : ''}" style="${g !== null ? 'background:' + COLORS[g] : ''}" data-gi="${j}"></div>`);
+      } else {
+        rowPegs.push(`<div class="peg"></div>`);
+      }
+    }
+    const fbDots = [];
+    if (h) {
+      for (let k = 0; k < CODE_LEN; k++) {
+        if (k < h.blacks) fbDots.push('<div class="fb-dot black"></div>');
+        else if (k < h.blacks + h.whites) fbDots.push('<div class="fb-dot white"></div>');
+        else fbDots.push('<div class="fb-dot"></div>');
+      }
+    } else {
+      for (let k = 0; k < CODE_LEN; k++) fbDots.push('<div class="fb-dot"></div>');
+    }
+    rows.push(`
+      <div class="row ${isActive ? 'active' : ''}">
+        <div class="row-num">${i}</div>
+        <div class="pegs">${rowPegs.join('')}</div>
+        <div class="feedback">${fbDots.join('')}</div>
+      </div>`);
+  }
+
+  const colorBtns = Array.from({length: NUM_COLORS}, (_, i) =>
+    `<div class="color-btn ${selectedColor === i && !eraseMode ? 'selected' : ''}" style="background:${COLORS[i]}" data-ci="${i}"></div>`
+  ).join('');
+
+  const canSubmit = state.guess.every(g => g !== null) && !state.winner;
+
+  return `
+    <h1>Mastermind 猜密码</h1>
+    <div class="status-bar">
+      <span class="round-info">第 ${state.round} / ${MAX_ROUNDS} 回合</span>
+      <span class="phase-info">玩家B 猜码</span>
+    </div>
+    <div class="secret-row">${secretDisplay}</div>
+    <div class="board">${rows.join('')}</div>
+    ${!state.winner ? `
+    <div class="color-picker">${colorBtns}
+      <div class="erase-btn ${eraseMode ? 'active' : ''}" id="eraseBtn" title="擦除模式">✕</div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="clearGuessBtn">清除</button>
+      <button class="btn btn-primary" id="submitBtn" ${canSubmit ? '' : 'disabled'}>提交猜测</button>
+    </div>` : ''}
+    <div class="actions" style="margin-top:10px">
+      <button class="btn btn-danger" id="restartBtn">重新开始</button>
+    </div>`;
+}
+
+function bindGame() {
+  document.querySelectorAll('.color-picker .color-btn').forEach(el => {
+    el.onclick = () => { selectedColor = +el.dataset.ci; eraseMode = false; render(); };
+  });
+  const eb = document.getElementById('eraseBtn');
+  if (eb) eb.onclick = () => { eraseMode = !eraseMode; render(); };
+
+  document.querySelectorAll('.peg[data-gi]').forEach(el => {
+    el.onclick = () => {
+      const idx = +el.dataset.gi;
+      if (eraseMode) {
+        state.guess[idx] = null;
+      } else {
+        state.guess[idx] = selectedColor;
+      }
+      render();
+    };
+  });
+
+  const cg = document.getElementById('clearGuessBtn');
+  if (cg) cg.onclick = () => { state.guess = Array(CODE_LEN).fill(null); render(); };
+
+  const sb = document.getElementById('submitBtn');
+  if (sb && !sb.disabled) sb.onclick = submitGuess;
+
+  document.getElementById('restartBtn').onclick = init;
+}
+
+function submitGuess() {
+  const guess = [...state.guess];
+  const result = evaluate(guess, state.secret);
+  state.history[state.round - 1] = { guess, blacks: result.blacks, whites: result.whites };
+
+  if (result.blacks === CODE_LEN) {
+    state.winner = 'B';
+    state.phase = 'done';
+    render();
+    revealSecret();
+    setTimeout(() => {
+      showResult('🎉 玩家B 获胜！', `用了 ${state.round} 回合猜中密码！`);
+      spawnFireworks();
+    }, 500);
+    return;
+  }
+
+  if (state.round >= MAX_ROUNDS) {
+    state.winner = 'A';
+    state.phase = 'done';
+    render();
+    revealSecret();
+    setTimeout(() => {
+      showResult('玩家A 获胜！', '密码未被猜中，设码者赢了');
+      spawnFailParticles();
+    }, 500);
+    return;
+  }
+
+  state.round++;
+  state.guess = Array(CODE_LEN).fill(null);
+
+  spawnFeedbackParticles(result.blacks, result.whites);
+  render();
+}
+
+function evaluate(guess, secret) {
+  let blacks = 0, whites = 0;
+  const sCount = {}, gCount = {};
+  for (let i = 0; i < CODE_LEN; i++) {
+    if (guess[i] === secret[i]) blacks++;
+    else {
+      sCount[secret[i]] = (sCount[secret[i]] || 0) + 1;
+      gCount[guess[i]] = (gCount[guess[i]] || 0) + 1;
+    }
+  }
+  for (const c in gCount) {
+    whites += Math.min(gCount[c], sCount[c] || 0);
+  }
+  return { blacks, whites };
+}
+
+function revealSecret() {
+  const pegs = document.querySelectorAll('.secret-peg');
+  pegs.forEach((p, i) => {
+    p.style.background = COLORS[state.secret[i]];
+    p.textContent = '';
+    p.classList.add('revealed');
+  });
+}
+
+function showResult(title, msg) {
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `<h2>${title}</h2><p>${msg}</p><button class="btn btn-primary" onclick="document.getElementById('overlay').classList.remove('show');init()">再来一局</button>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+// Particle system
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let particles = [];
+let animId;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+class Particle {
+  constructor(x, y, color, vx, vy, life, size, gravity, type) {
+    this.x = x; this.y = y; this.color = color;
+    this.vx = vx; this.vy = vy;
+    this.life = life; this.maxLife = life;
+    this.size = size; this.gravity = gravity || 0;
+    this.type = type || 'circle';
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += this.gravity;
+    this.life--;
+    this.vx *= 0.99;
+  }
+  draw(ctx) {
+    const alpha = Math.max(0, this.life / this.maxLife);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = this.color;
+    if (this.type === 'circle') {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size * alpha, this.size * alpha);
+    }
+  }
+}
+
+function spawnFeedbackParticles(blacks, whites) {
+  const board = document.querySelector('.board');
+  if (!board) return;
+  const rect = board.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height * (1 - (state.round - 1) / MAX_ROUNDS);
+
+  for (let i = 0; i < blacks * 12; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    particles.push(new Particle(cx, cy, '#333', Math.cos(angle)*speed, Math.sin(angle)*speed, 40+Math.random()*20, 3+Math.random()*3, 0.05));
+  }
+  for (let i = 0; i < whites * 10; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    particles.push(new Particle(cx, cy, '#eee', Math.cos(angle)*speed, Math.sin(angle)*speed, 40+Math.random()*20, 3+Math.random()*3, 0.05));
+  }
+  if (!animId) animate();
+}
+
+function spawnFireworks() {
+  const w = canvas.width, h = canvas.height;
+  for (let burst = 0; burst < 5; burst++) {
+    setTimeout(() => {
+      const cx = w * 0.2 + Math.random() * w * 0.6;
+      const cy = h * 0.2 + Math.random() * h * 0.4;
+      for (let i = 0; i < 80; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 6;
+        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        const type = Math.random() > 0.5 ? 'circle' : 'square';
+        particles.push(new Particle(cx, cy, color, Math.cos(angle)*speed, Math.sin(angle)*speed, 60+Math.random()*40, 2+Math.random()*4, 0.04, type));
+      }
+      if (!animId) animate();
+    }, burst * 300);
+  }
+}
+
+function spawnFailParticles() {
+  const w = canvas.width, h = canvas.height;
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random() * w;
+    particles.push(new Particle(x, -10, '#e74c3c', (Math.random()-0.5)*2, 1+Math.random()*3, 80+Math.random()*40, 2+Math.random()*3, 0.08));
+  }
+  if (!animId) animate();
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => { p.update(); p.draw(ctx); });
+  ctx.globalAlpha = 1;
+  if (particles.length > 0) {
+    animId = requestAnimationFrame(animate);
+  } else {
+    animId = null;
+  }
+}
+
+init();
+</script>
+<a href="../index.html" style="position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:9999;padding:8px 14px;background:rgba(0,0,0,.65);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif;font-size:13px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)">← 主页</a>
+</body>
+</html>
