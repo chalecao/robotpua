@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凡人修仙传 · 第2集：闯掩月宗</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100vw;height:100vh;overflow:hidden;font-family:'SimSun','STSong',serif;background:#000}
+#stage{width:100vw;height:100vh;position:relative;overflow:hidden}
+.scene{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;transition:opacity 1.5s ease;pointer-events:none}
+.scene.active{opacity:1;pointer-events:auto}
+.scene svg{position:absolute;top:0;left:0;width:100%;height:100%}
+#subtitle-box{position:fixed;bottom:0;left:0;width:100%;z-index:1000;background:linear-gradient(transparent,rgba(0,0,0,0.85) 30%);padding:20px 60px 30px;min-height:100px;display:none}
+#scene-title{color:#d4a843;font-size:18px;margin-bottom:8px;letter-spacing:3px;font-weight:bold;text-shadow:0 0 10px rgba(212,168,67,0.5)}
+#subtitle-text{color:#eee;font-size:20px;line-height:1.8;letter-spacing:2px;text-shadow:1px 1px 3px rgba(0,0,0,0.8);min-height:36px}
+.cursor{display:inline-block;width:2px;height:22px;background:#d4a843;margin-left:2px;animation:blink .8s infinite;vertical-align:middle}
+@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+#controls{position:fixed;bottom:30px;right:40px;z-index:1001;display:none;gap:12px;align-items:center}
+#controls button{background:rgba(212,168,67,0.2);border:1px solid rgba(212,168,67,0.5);color:#d4a843;padding:8px 18px;cursor:pointer;font-size:14px;letter-spacing:1px;border-radius:4px;transition:all .3s;font-family:inherit}
+#controls button:hover{background:rgba(212,168,67,0.4)}
+#scene-indicator{color:rgba(212,168,67,0.7);font-size:13px}
+#episode-title{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2000;background:#000;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;opacity:1;transition:opacity 2s ease}
+#episode-title h1{color:#d4a843;font-size:48px;letter-spacing:12px;text-shadow:0 0 30px rgba(212,168,67,0.4);animation:titleGlow 3s ease-in-out infinite}
+#episode-title h2{color:#999;font-size:22px;letter-spacing:6px;margin-top:20px;font-weight:normal}
+.start-hint{color:rgba(212,168,67,0.5);font-size:16px;margin-top:60px;animation:pulse 2s ease-in-out infinite}
+@keyframes titleGlow{0%,100%{text-shadow:0 0 30px rgba(212,168,67,0.4)}50%{text-shadow:0 0 60px rgba(212,168,67,0.8),0 0 100px rgba(212,168,67,0.3)}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.015)}}
+@keyframes cloudDrift{0%{transform:translateX(-200px)}100%{transform:translateX(1200px)}}
+@keyframes particleUp{0%{transform:translateY(0) scale(1);opacity:.8}100%{transform:translateY(-200px) scale(.2);opacity:0}}
+@keyframes shockwave{0%{r:20;opacity:.7}100%{r:400;opacity:0}}
+@keyframes shake{0%,100%{transform:translate(0,0)}10%{transform:translate(-6px,3px)}20%{transform:translate(5px,-5px)}30%{transform:translate(-3px,6px)}40%{transform:translate(6px,-2px)}50%{transform:translate(-5px,-3px)}60%{transform:translate(3px,5px)}70%{transform:translate(-6px,2px)}80%{transform:translate(5px,-6px)}90%{transform:translate(-2px,3px)}}
+@keyframes lanternSwing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes swordGlow{0%,100%{opacity:.4;filter:drop-shadow(0 0 4px rgba(200,220,255,0.5))}50%{opacity:1;filter:drop-shadow(0 0 12px rgba(200,220,255,0.9))}}
+@keyframes fireFlicker{0%,100%{transform:scaleY(1) scaleX(1)}25%{transform:scaleY(1.1) scaleX(0.95)}50%{transform:scaleY(0.9) scaleX(1.05)}75%{transform:scaleY(1.05) scaleX(0.98)}}
+@keyframes rainDrop{0%{transform:translateY(-100px);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(1100px);opacity:0}}
+@keyframes spiritPulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.8;transform:scale(1.1)}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="episode-title">
+    <h1>凡人修仙传</h1>
+    <h2>第2集 · 闯掩月宗</h2>
+    <div class="start-hint">点击任意位置开始</div>
+  </div>
+  <div id="subtitle-box"><div id="scene-title"></div><div id="subtitle-text"></div></div>
+  <div id="controls"><span id="scene-indicator"></span><button id="btn-prev">◀ 上一幕</button><button id="btn-auto">▶ 自动播放</button><button id="btn-next">下一幕 ▶</button></div>
+</div>
+<script>
+const W=1000,H=1000;
+let cur=-1,auto=false,aTimer=null,tTimer=null;
+const stage=document.getElementById('stage'),subBox=document.getElementById('subtitle-box'),scTitle=document.getElementById('scene-title'),subText=document.getElementById('subtitle-text'),scInd=document.getElementById('scene-indicator'),epTitle=document.getElementById('episode-title'),ctrls=document.getElementById('controls');
+
+const SCENES=[
+{t:'片段01 - 山门对峙',s:'清晨，韩立踏过掩月宗山门，守山弟子列阵拦路。韩立目光如刀，元婴灵压如实质般碾压过去，弟子们的法器纷纷震颤，阵型摇摇欲坠。韩立一步一顿，每一步都在青石板上留下深深的脚印。'},
+{t:'片段02 - 通传宗门',s:'一名长老急匆匆赶往宗主大殿，沿途连发数道传讯灵光。宗门内气氛骤然紧张，正在布置双修大典的弟子们面面相觑。远处山巅，一道青色身影正缓缓走来，虽未动武，气势却已令天地变色。'},
+{t:'片段03 - 长老会紧急召开',s:'掩月宗议事大殿内，七位长老分坐两侧，宗主居中。众人面色各异——有愤怒、有忌惮、有无奈。一位白发长老拍案而起，主张以宗门之力镇压韩立；另一位女长老则面色忧虑，认为与元婴修士为敌并非明智之举。'},
+{t:'片段04 - 大殿正面对峙',s:'韩立大步迈入议事大殿，与七位长老正面对峙。他负手而立，目光扫过在座每一位长老，声音冰冷地开口："南宫婉在哪里？"大殿内灵力暗涌，长老们的护体灵光不自觉亮起。空气如弓弦般紧绷。'},
+{t:'片段05 - 双修大典中断',s:'双修大典现场，红绸飘舞、宾客满座。忽然一声巨响，法台四周的禁制被强行撕裂。韩立的声音响彻整个广场："这场双修，到此为止。"在场宾客哗然，南宫婉猛然抬头，眼中闪过难以置信的光芒。'},
+{t:'片段06 - 魏无涯现身',s:'一个身着黑色锦袍的中年修士从贵宾席中缓缓走出，正是幕后推手魏无涯。他面带冷笑，身后跟着数名金丹后期高手。魏无涯开口嘲讽韩立不自量力，一个刚入元婴的修士竟敢挑战天南势力联盟。黑袍猎猎，气势阴冷。'},
+{t:'片段07 - 真相大白',s:'韩立与魏无涯言语交锋，魏无涯得意之下道出真相——他早已觊觎南宫婉的特殊体质，双修不过是为了夺取她的元阴之力突破瓶颈。且他暗中勾结掩月宗叛徒，以宗门安危相要挟。南宫婉闻言面色惨白，身体微微发抖。'},
+{t:'片段08 - 韩立与南宫婉重逢',s:'韩立穿过人群，走到南宫婉面前。两人四目相对，千言万语尽在不言中。南宫婉的眼泪无声滑落，韩立伸手轻轻擦去她的泪水，声音低沉而坚定："我来了，没有人能强迫你。"身后红绸飘扬，恍若隔世。'},
+{t:'片段09 - 联手突围',s:'魏无涯一声令下，十余名高手同时出手围攻韩立。韩立护住南宫婉，右手祭出青竹蜂云剑，左手施展大衍决。剑光如暴雨倾泻，与十余名高手的法器正面碰撞，火花四溅，大殿被战斗余波震得摇摇欲坠。'},
+{t:'片段10 - 元婴之威',s:'韩立全力爆发，元婴期的恐怖实力彻底展现。一道金色法相从他身后浮现，高达数丈，正是元婴法相。法相一掌拍出，直接将三名金丹修士拍飞，撞塌数面墙壁。在场所有人目瞪口呆——这份实力远超他们对元婴初期的认知。'},
+{t:'片段11 - 禁制封锁',s:'掩月宗宗主终于出手，启动了宗门大阵。无数灵纹从地面亮起，形成一座巨大的封锁禁制，将韩立和南宫婉困在其中。禁制内灵力紊乱，飞行受限。韩立眉头紧锁，南宫婉指出禁制核心位置——她曾在掩月宗修炼多年，熟知宗门阵法。'},
+{t:'片段12 - 破阵而出',s:'韩立按照南宫婉的指引，集中全力攻击禁制核心。青竹蜂云剑化作一道金色洪流，配合噬金虫的吞噬之力，硬生生撕开禁制一道裂口。碎石飞溅，灵光明灭，两人从裂缝中冲出的瞬间，身后的禁制轰然崩塌。'},
+{t:'片段13 - 宗门混战',s:'禁制崩塌后，掩月宗陷入混乱。支持韩立的长老与魏无涯一方发生冲突，宗门内到处是法术交锋的光芒。韩立趁乱护着南宫婉向山门方向突围，一路击退拦路者。远处浓烟滚滚，数座建筑在战斗中被毁。'},
+{t:'片段14 - 长老拦路',s:'一名元婴初期的掩月宗长老挡在韩立面前，此人一直主张与魏无涯结盟。两人短兵相接，法力碰撞产生剧烈的灵力风暴。韩立以青竹蜂云剑对敌，三十回合后以一招之差将对方击退。长老吐血后退，眼中满是不可置信。'},
+{t:'片段15 - 杀出山门',s:'韩立拉着南宫婉的手，冲出掩月宗山门。身后追兵数十人，法术如流星雨般追来。韩立回身祭出一面金色盾牌法宝，挡下大部分攻击，同时催动遁术，两人化作一道流光消失在天际。追兵望尘莫及。'},
+{t:'片段16 - 逃亡密林',s:'韩立带着南宫婉遁入一片古老的密林。林中灵雾弥漫，遮蔽了追踪灵识。两人落地后急速穿行，韩立一边跑一边布下迷惑阵法。身后隐约传来追兵的呼喝声，但越来越远。阳光透过树叶缝隙洒下斑驳光影。'},
+{t:'片段17 - 发现隐秘山洞',s:'南宫婉发现了一处被藤蔓遮掩的隐秘山洞，洞口有天然灵气屏障，可以遮蔽气息。两人进入山洞，韩立立刻布下多重禁制。洞内幽暗潮湿，但暂时安全。两人终于有了片刻喘息的机会。'},
+{t:'片段18 - 洞中温情',s:'洞中篝火跳动，南宫婉靠在韩立肩上，轻声诉说这些年的思念与苦楚。韩立沉默不语，只是将她搂得更紧。火光映照两人面庞，洞外月光如水。这一刻，所有的危险与追兵仿佛都与他们无关。'},
+{t:'片段19 - 追兵逼近',s:'天色微明，洞外传来密集的脚步声和灵力波动。魏无涯的追兵找到了这片密林，正在逐寸搜索。韩立的禁制虽然遮蔽了气息，但搜索范围在不断缩小。韩立缓缓起身，目光冷静——他知道，战斗不可避免。'},
+{t:'片段20 - 新的征程',s:'韩立带着南宫婉从山洞另一出口离开，望向远方茫茫的山川。他知道天南已不是久留之地，魏无涯背后的势力联盟不会善罢甘休。韩立指向东南方向——那里是乱星海的入口，一片充满机遇与危险的新天地。新的征程即将开始。'}
+];
+
+// === SVG Character Helpers ===
+function hanLi(x,y,sc=1,opts={}){
+  const {sit,hair,glow,angry,fighting,run}=opts;
+  let s=`<g transform="translate(${x},${y}) scale(${sc})">`;
+  if(glow) s+=`<ellipse cx="0" cy="-30" rx="50" ry="80" fill="none" stroke="rgba(212,168,67,0.25)" stroke-width="2"><animate attributeName="rx" values="45;55;45" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite"/></ellipse>`;
+  s+=`<g style="animation:breathe 4s ease-in-out infinite;transform-origin:0 0">`;
+  s+=`<path d="M-18,-20 Q-22,20 -20,60 L20,60 Q22,20 18,-20Z" fill="#2a5a3a" stroke="#1a3a2a"/>`;
+  if(!sit){
+    const legAnim=run?`<animateTransform attributeName="transform" type="rotate" values="-15,0,58;15,0,58;-15,0,58" dur="0.6s" repeatCount="indefinite"/>`:'';
+    const legAnim2=run?`<animateTransform attributeName="transform" type="rotate" values="15,0,58;-15,0,58;15,0,58" dur="0.6s" repeatCount="indefinite"/>`:'';
+    s+=`<g style="animation:${run?'none':'sway 1.5s ease-in-out infinite'};transform-origin:-7px 58px">${legAnim?'<g>'+legAnim:''}<rect x="-12" y="58" width="10" height="30" rx="3" fill="#1a3a2a"/><rect x="-12" y="85" width="10" height="25" rx="3" fill="#152a20"/>${legAnim?'</g>':''}</g>`;
+    s+=`<g style="animation:${run?'none':'sway 1.5s ease-in-out .75s infinite'};transform-origin:7px 58px">${legAnim2?'<g>'+legAnim2:''}<rect x="2" y="58" width="10" height="30" rx="3" fill="#1a3a2a"/><rect x="2" y="85" width="10" height="25" rx="3" fill="#152a20"/>${legAnim2?'</g>':''}</g>`;
+  }
+  const armAnim=fighting?`<animateTransform attributeName="transform" type="rotate" values="-30,-18,-15;30,-18,-15;-30,-18,-15" dur="0.4s" repeatCount="indefinite"/>`:'';
+  s+=`<g style="animation:${fighting?'none':'sway 3s ease-in-out infinite'};transform-origin:-18px -15px">${armAnim?'<g>'+armAnim:''}<path d="M-18,-15 Q-35,5 -30,25" stroke="#2a5a3a" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="-30" cy="27" r="4" fill="#f0d0a0"/>${armAnim?'</g>':''}</g>`;
+  s+=`<g style="animation:${fighting?'none':'sway 3s ease-in-out 1.5s infinite'};transform-origin:18px -15px"><path d="M18,-15 Q35,5 30,25" stroke="#2a5a3a" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="30" cy="27" r="4" fill="#f0d0a0"/></g>`;
+  s+=`</g>`;
+  s+=`<g style="animation:float 6s ease-in-out infinite;transform-origin:0 -38px">`;
+  s+=`<ellipse cx="0" cy="-38" rx="14" ry="17" fill="#f0d0a0"/>`;
+  if(hair){
+    s+=`<path d="M-14,-48 Q0,-58 14,-48" fill="#1a1a2a"/>`;
+    s+=`<path d="M-16,-42 Q-30,-10 -28,30" stroke="#1a1a2a" stroke-width="4" fill="none" opacity=".6"/>`;
+    s+=`<path d="M16,-42 Q30,-10 28,30" stroke="#1a1a2a" stroke-width="4" fill="none" opacity=".6"/>`;
+  } else {
+    s+=`<path d="M-14,-48 Q0,-58 14,-48" fill="#1a1a2a"/>`;
+    s+=`<rect x="-3" y="-58" width="6" height="12" rx="3" fill="#1a1a2a"/>`;
+  }
+  s+=`<ellipse cx="-5" cy="-40" rx="2.5" ry="2" fill="#1a1a1a"/><ellipse cx="5" cy="-40" rx="2.5" ry="2" fill="#1a1a1a"/>`;
+  if(angry) s+=`<line x1="-8" y1="-45" x2="-3" y2="-43" stroke="#1a1a1a" stroke-width="1.5"/><line x1="8" y1="-45" x2="3" y2="-43" stroke="#1a1a1a" stroke-width="1.5"/>`;
+  s+=`<path d="M-3,-33 Q0,-31 3,-33" stroke="#c08060" stroke-width="1" fill="none"><animate attributeName="d" values="M-3,-33 Q0,-31 3,-33;M-3,-33 Q0,-29 3,-33;M-3,-33 Q0,-31 3,-33" dur="2s" repeatCount="indefinite"/></path>`;
+  s+=`</g></g>`;
+  return s;
+}
+
+function nangongWan(x,y,sc=1,opts={}){
+  const {red,sad,happy}=opts;
+  const dc=red?'#c02030':'#e8e8f0',ds=red?'#801020':'#b0b0c0';
+  let s=`<g transform="translate(${x},${y}) scale(${sc})">`;
+  s+=`<g style="animation:breathe 5s ease-in-out infinite;transform-origin:0 0">`;
+  s+=`<path d="M-16,-20 Q-20,20 -18,55 L18,55 Q20,20 16,-20Z" fill="${dc}" stroke="${ds}"/>`;
+  s+=`<path d="M-18,55 Q-22,70 -15,85 L-5,85 L-5,55Z" fill="${dc}" stroke="${ds}" stroke-width=".5"/>`;
+  s+=`<path d="M18,55 Q22,70 15,85 L5,85 L5,55Z" fill="${dc}" stroke="${ds}" stroke-width=".5"/>`;
+  s+=`<g style="animation:sway 4s ease-in-out infinite;transform-origin:-16px -15px"><path d="M-16,-15 Q-30,5 -25,22" stroke="${dc}" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="-25" cy="24" r="3.5" fill="#f5ddc0"/></g>`;
+  s+=`<g style="animation:sway 4s ease-in-out 2s infinite;transform-origin:16px -15px"><path d="M16,-15 Q30,5 25,22" stroke="${dc}" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="25" cy="24" r="3.5" fill="#f5ddc0"/></g>`;
+  s+=`</g>`;
+  s+=`<g style="animation:float 7s ease-in-out infinite;transform-origin:0 -36px">`;
+  s+=`<ellipse cx="0" cy="-36" rx="13" ry="16" fill="#f5ddc0"/>`;
+  s+=`<path d="M-13,-44 Q0,-56 13,-44" fill="#1a1a2a"/>`;
+  s+=`<path d="M-15,-40 Q-22,-20 -20,10" stroke="#1a1a2a" stroke-width="3" fill="none"/>`;
+  s+=`<path d="M15,-40 Q22,-20 20,10" stroke="#1a1a2a" stroke-width="3" fill="none"/>`;
+  if(red) s+=`<path d="M-8,-52 Q0,-60 8,-52" fill="#d4a843" opacity=".8"/><circle cx="0" cy="-54" r="3" fill="#d4a843"/>`;
+  s+=`<ellipse cx="-5" cy="-38" rx="2.2" ry="2" fill="#2a1a1a"/><ellipse cx="5" cy="-38" rx="2.2" ry="2" fill="#2a1a1a"/>`;
+  if(sad){
+    s+=`<path d="M-3,-31 Q0,-33 3,-31" stroke="#c08060" fill="none"/>`;
+    s+=`<circle cx="-8" cy="-33" r="1.5" fill="rgba(100,180,255,0.6)"><animate attributeName="cy" values="-33;-15" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values=".8;0" dur="2s" repeatCount="indefinite"/></circle>`;
+    s+=`<circle cx="8" cy="-34" r="1.2" fill="rgba(100,180,255,0.5)"><animate attributeName="cy" values="-34;-16" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".7;0" dur="2.5s" repeatCount="indefinite"/></circle>`;
+  } else if(happy){
+    s+=`<path d="M-3,-31 Q0,-28 3,-31" stroke="#c08060" fill="none"/>`;
+  } else {
+    s+=`<path d="M-3,-31 Q0,-29 3,-31" stroke="#c08060" fill="none"/>`;
+  }
+  s+=`</g></g>`;
+  return s;
+}
+
+function weiWuya(x,y,sc=1,opts={}){
+  const {smirk}=opts||{};
+  let s=`<g transform="translate(${x},${y}) scale(${sc})">`;
+  s+=`<ellipse cx="0" cy="-30" rx="45" ry="70" fill="none" stroke="rgba(80,20,80,0.2)" stroke-width="2"><animate attributeName="opacity" values=".2;.5;.2" dur="3s" repeatCount="indefinite"/></ellipse>`;
+  s+=`<g style="animation:breathe 4.5s ease-in-out infinite;transform-origin:0 0">`;
+  s+=`<path d="M-19,-22 Q-23,20 -21,62 L21,62 Q23,20 19,-22Z" fill="#1a1a2a" stroke="#3a2a4a" stroke-width="1"/>`;
+  s+=`<path d="M-10,-20 L-10,58" stroke="#3a2a3a" stroke-width=".8" opacity=".4"/><path d="M10,-20 L10,58" stroke="#3a2a3a" stroke-width=".8" opacity=".4"/>`;
+  s+=`<rect x="-11" y="60" width="9" height="30" rx="3" fill="#0a0a15"/><rect x="2" y="60" width="9" height="30" rx="3" fill="#0a0a15"/>`;
+  s+=`<g style="animation:sway 3.5s ease-in-out infinite;transform-origin:-19px -16px"><path d="M-19,-16 Q-36,4 -32,24" stroke="#1a1a2a" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="-32" cy="26" r="4" fill="#d8c0a0"/></g>`;
+  s+=`<g style="animation:sway 3.5s ease-in-out 1.75s infinite;transform-origin:19px -16px"><path d="M19,-16 Q36,4 32,24" stroke="#1a1a2a" stroke-width="8" fill="none" stroke-linecap="round"/><circle cx="32" cy="26" r="4" fill="#d8c0a0"/></g>`;
+  s+=`</g>`;
+  s+=`<g style="animation:float 5.5s ease-in-out infinite;transform-origin:0 -40px">`;
+  s+=`<ellipse cx="0" cy="-40" rx="14" ry="17" fill="#d8c0a0"/>`;
+  s+=`<path d="M-14,-50 Q0,-60 14,-50" fill="#1a1a1a"/>`;
+  s+=`<rect x="-2" y="-60" width="4" height="10" rx="2" fill="#1a1a1a"/>`;
+  s+=`<ellipse cx="-5" cy="-42" rx="2.5" ry="2" fill="#1a1a1a"/><ellipse cx="5" cy="-42" rx="2.5" ry="2" fill="#1a1a1a"/>`;
+  if(smirk) s+=`<path d="M-4,-35 Q0,-32 4,-35" stroke="#8a5a3a" stroke-width="1.2" fill="none"/>`;
+  else s+=`<path d="M-3,-35 Q0,-33 3,-35" stroke="#8a5a3a" stroke-width="1" fill="none"/>`;
+  s+=`<line x1="-8" y1="-47" x2="-3" y2="-45" stroke="#1a1a1a" stroke-width="1.5"/><line x1="8" y1="-47" x2="3" y2="-45" stroke="#1a1a1a" stroke-width="1.5"/>`;
+  s+=`</g></g>`;
+  return s;
+}
+
+function elder(x,y,sc=1,opts={}){
+  const {white,woman,angry}=opts||{};
+  const rc=white?'#8a8a9a':'#4a3a5a',rs=white?'#6a6a7a':'#3a2a4a';
+  let s=`<g transform="translate(${x},${y}) scale(${sc})">`;
+  s+=`<g style="animation:breathe 5s ease-in-out infinite;transform-origin:0 0">`;
+  s+=`<path d="M-16,-18 Q-19,18 -17,55 L17,55 Q19,18 16,-18Z" fill="${rc}" stroke="${rs}"/>`;
+  s+=`<rect x="-10" y="53" width="8" height="28" rx="3" fill="${rs}"/><rect x="2" y="53" width="8" height="28" rx="3" fill="${rs}"/>`;
+  s+=`<g style="animation:sway 4s ease-in-out infinite;transform-origin:-16px -12px"><path d="M-16,-12 Q-28,5 -24,20" stroke="${rc}" stroke-width="7" fill="none" stroke-linecap="round"/></g>`;
+  s+=`<g style="animation:sway 4s ease-in-out 2s infinite;transform-origin:16px -12px"><path d="M16,-12 Q28,5 24,20" stroke="${rc}" stroke-width="7" fill="none" stroke-linecap="round"/></g>`;
+  s+=`</g>`;
+  s+=`<g style="animation:float 6s ease-in-out infinite;transform-origin:0 -34px">`;
+  s+=`<ellipse cx="0" cy="-34" rx="12" ry="15" fill="#e8c8a0"/>`;
+  if(white){
+    s+=`<path d="M-12,-42 Q0,-50 12,-42" fill="#c0c0c0"/>`;
+    s+=`<path d="M-14,-36 Q-20,-15 -18,10" stroke="#c0c0c0" stroke-width="3" fill="none"/>`;
+    s+=`<path d="M14,-36 Q20,-15 18,10" stroke="#c0c0c0" stroke-width="3" fill="none"/>`;
+  } else if(woman){
+    s+=`<path d="M-12,-42 Q0,-54 12,-42" fill="#2a1a2a"/>`;
+    s+=`<path d="M-14,-38 Q-20,-15 -18,10" stroke="#2a1a2a" stroke-width="3" fill="none"/>`;
+    s+=`<path d="M14,-38 Q20,-15 18,10" stroke="#2a1a2a" stroke-width="3" fill="none"/>`;
+    s+=`<circle cx="-8" cy="-46" r="2" fill="#d4a843"/>`;
+  } else {
+    s+=`<path d="M-12,-42 Q0,-52 12,-42" fill="#3a2a1a"/>`;
+  }
+  s+=`<ellipse cx="-4" cy="-36" rx="2" ry="1.8" fill="#1a1a1a"/><ellipse cx="4" cy="-36" rx="2" ry="1.8" fill="#1a1a1a"/>`;
+  if(angry) s+=`<line x1="-7" y1="-41" x2="-2" y2="-39" stroke="#1a1a1a" stroke-width="1.2"/><line x1="7" y1="-41" x2="2" y2="-39" stroke="#1a1a1a" stroke-width="1.2"/>`;
+  s+=`<path d="M-2.5,-30 Q0,-28 2.5,-30" stroke="#c08060" fill="none"><animate attributeName="d" values="M-2.5,-30 Q0,-28 2.5,-30;M-2.5,-30 Q0,-26 2.5,-30;M-2.5,-30 Q0,-28 2.5,-30" dur="2.5s" repeatCount="indefinite"/></path>`;
+  s+=`</g></g>`;
+  return s;
+}
+
+function guard(x,y,sc=1){
+  return `<g transform="translate(${x},${y}) scale(${sc})">
+    <g style="animation:breathe 4s ease-in-out infinite;transform-origin:0 0">
+      <path d="M-12,-14 Q-15,14 -13,45 L13,45 Q15,14 12,-14Z" fill="#3a3a5a" stroke="#2a2a4a"/>
+      <rect x="-8" y="43" width="7" height="22" rx="2" fill="#2a2a4a"/><rect x="1" y="43" width="7" height="22" rx="2" fill="#2a2a4a"/>
+      <g style="animation:sway 3s ease-in-out infinite;transform-origin:-12px -10px"><path d="M-12,-10 Q-22,4 -18,18" stroke="#3a3a5a" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+      <g style="animation:sway 3s ease-in-out 1.5s infinite;transform-origin:12px -10px"><path d="M12,-10 Q22,4 18,18" stroke="#3a3a5a" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+    </g>
+    <g style="animation:float 5s ease-in-out infinite;transform-origin:0 -28px">
+      <ellipse cx="0" cy="-28" rx="10" ry="13" fill="#e0c0a0"/>
+      <path d="M-10,-35 Q0,-44 10,-35" fill="#2a2a3a"/>
+      <ellipse cx="-4" cy="-30" rx="2" ry="1.5" fill="#1a1a1a"/><ellipse cx="4" cy="-30" rx="2" ry="1.5" fill="#1a1a1a"/>
+      <path d="M-2,-24 Q0,-22 2,-24" stroke="#c08060" fill="none"/>
+    </g></g>`;
+}
+
+function goldenCoreGuy(x,y,sc=1){
+  return `<g transform="translate(${x},${y}) scale(${sc})">
+    <g style="animation:breathe 4s ease-in-out infinite;transform-origin:0 0">
+      <path d="M-14,-16 Q-17,16 -15,48 L15,48 Q17,16 14,-16Z" fill="#5a4a2a" stroke="#4a3a1a"/>
+      <rect x="-9" y="46" width="7" height="24" rx="2" fill="#3a2a1a"/><rect x="2" y="46" width="7" height="24" rx="2" fill="#3a2a1a"/>
+      <g style="animation:sway 3s ease-in-out infinite;transform-origin:-14px -10px"><path d="M-14,-10 Q-26,4 -22,18" stroke="#5a4a2a" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+      <g style="animation:sway 3s ease-in-out 1.5s infinite;transform-origin:14px -10px"><path d="M14,-10 Q26,4 22,18" stroke="#5a4a2a" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+    </g>
+    <g style="animation:float 5s ease-in-out infinite;transform-origin:0 -30px">
+      <ellipse cx="0" cy="-30" rx="11" ry="14" fill="#e8c8a0"/>
+      <path d="M-11,-38 Q0,-48 11,-38" fill="#2a1a0a"/>
+      <ellipse cx="-4" cy="-32" rx="2" ry="1.5" fill="#1a1a1a"/><ellipse cx="4" cy="-32" rx="2" ry="1.5" fill="#1a1a1a"/>
+    </g></g>`;
+}
+
+// === Background helpers ===
+function stars(n,yMin,yMax){
+  let s='';
+  for(let i=0;i<n;i++){const x=Math.random()*W,y=yMin+Math.random()*(yMax-yMin),r=.5+Math.random()*1.5,d=2+Math.random()*4;
+  s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity=".3"><animate attributeName="opacity" values=".2;1;.2" dur="${d}s" repeatCount="indefinite"/></circle>`;}
+  return s;
+}
+
+function clouds(n,yMin,yMax,c='rgba(255,255,255,0.15)'){
+  let s='';
+  for(let i=0;i<n;i++){const y=yMin+Math.random()*(yMax-yMin),d=30+Math.random()*40,del=-Math.random()*d,w=120+Math.random()*200;
+  s+=`<g style="animation:cloudDrift ${d}s linear ${del}s infinite"><g transform="translate(-200,${y})">
+    <ellipse cx="${w/2}" cy="30" rx="${w/2}" ry="20" fill="${c}"/>
+    <ellipse cx="${w*.3}" cy="25" rx="${w*.25}" ry="18" fill="${c}"/>
+    <ellipse cx="${w*.7}" cy="28" rx="${w*.2}" ry="15" fill="${c}"/>
+  </g></g>`;}
+  return s;
+}
+
+function mountains(c1,c2,yB){
+  return `<path d="M0,${H} L0,${yB+100} Q100,${yB-50} 200,${yB+30} Q350,${yB-80} 500,${yB+10} Q650,${yB-60} 800,${yB+40} Q900,${yB-40} 1000,${yB+20} L1000,${H}Z" fill="${c2}" opacity=".5"/>
+  <path d="M0,${H} L0,${yB+150} Q150,${yB+20} 300,${yB+80} Q450,${yB-20} 600,${yB+60} Q750,${yB} 900,${yB+100} L1000,${yB+70} L1000,${H}Z" fill="${c1}"/>`;
+}
+
+function particles(n,c,xMin,xMax,yMin,yMax){
+  let s='';
+  for(let i=0;i<n;i++){const x=xMin+Math.random()*(xMax-xMin),y=yMin+Math.random()*(yMax-yMin),d=2+Math.random()*3,del=-Math.random()*d,sz=2+Math.random()*4;
+  s+=`<rect x="${x}" y="${y}" width="${sz}" height="${sz}" rx="${sz/2}" fill="${c}" style="animation:particleUp ${d}s ease-out ${del}s infinite"/>`;}
+  return s;
+}
+
+function lantern(x,y,c='#c02020'){
+  return `<g transform="translate(${x},${y})" style="animation:lanternSwing ${3+Math.random()*2}s ease-in-out infinite ${Math.random()*2}s;transform-origin:${x}px ${y-15}px">
+    <line x1="0" y1="-15" x2="0" y2="-5" stroke="#4a3a2a" stroke-width="1"/>
+    <ellipse cx="0" cy="0" rx="8" ry="12" fill="${c}" opacity=".9"/>
+    <ellipse cx="0" cy="0" rx="8" ry="12" fill="none" stroke="#d4a843" stroke-width=".5"/>
+    <line x1="0" y1="12" x2="0" y2="18" stroke="#d4a843" stroke-width=".8"/>
+    <ellipse cx="0" cy="0" rx="4" ry="6" fill="rgba(255,200,100,0.3)"/>
+  </g>`;
+}
+
+function sword(x,y,angle=0,sc=1){
+  return `<g transform="translate(${x},${y}) rotate(${angle}) scale(${sc})" style="animation:swordGlow 2s ease-in-out infinite">
+    <line x1="0" y1="0" x2="0" y2="-60" stroke="rgba(200,220,255,0.9)" stroke-width="3"/>
+    <line x1="0" y1="0" x2="0" y2="-60" stroke="rgba(150,180,255,0.4)" stroke-width="8"/>
+    <line x1="-8" y1="-5" x2="8" y2="-5" stroke="rgba(200,220,255,0.7)" stroke-width="2"/>
+  </g>`;
+}
+
+// === Scene draw functions ===
+function drawScene(idx){
+  const sc=SCENES[idx];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">`;
+  let bg='';
+  switch(idx){
+    case 0: { // Mountain gate confrontation
+      bg=`<defs><linearGradient id="g0" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a5a7a"/><stop offset="25%" stop-color="#5a8aaa"/><stop offset="50%" stop-color="#8ab4d0"/><stop offset="70%" stop-color="#4a7a4a"/><stop offset="100%" stop-color="#2a4a2a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g0)"/>`;
+      bg+=clouds(3,30,200,'rgba(255,255,255,0.3)');
+      bg+=mountains('#2a5a2a','#3a7a3a',500);
+      // Stone gate
+      bg+=`<rect x="380" y="250" width="240" height="400" fill="none" stroke="#5a5a6a" stroke-width="8" rx="5"/>`;
+      bg+=`<path d="M360,250 L500,140 L640,250" fill="#4a4a5a" stroke="#6a6a7a" stroke-width="3"/>`;
+      bg+=`<text x="460" y="350" fill="#d4a843" font-size="36" font-family="SimSun" font-weight="bold">掩月宗</text>`;
+      // Stone path with footprints
+      bg+=`<rect x="420" y="650" width="160" height="350" fill="#6a6a7a" rx="2"/>`;
+      for(let i=0;i<5;i++) bg+=`<ellipse cx="500" cy="${680+i*50}" rx="8" ry="4" fill="#3a3a4a"><animate attributeName="opacity" values="0;1" dur="0.5s" begin="${i*0.3}s" fill="freeze"/></ellipse>`;
+      // Trembling guards
+      bg+=particles(8,'rgba(212,168,67,0.5)',350,650,500,750);
+      svg+=bg;
+      svg+=hanLi(500,600,1.8,{hair:true,glow:true,angry:true});
+      svg+=guard(380,700,1.0)+guard(620,700,1.0)+guard(350,730,0.9)+guard(650,730,0.9);
+      break;
+    }
+    case 1: { // Message sent to sect
+      bg=`<defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a4a6a"/><stop offset="30%" stop-color="#4a6a8a"/><stop offset="60%" stop-color="#3a5a3a"/><stop offset="100%" stop-color="#1a3a1a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g1)"/>`;
+      bg+=clouds(4,50,250,'rgba(255,255,255,0.25)');
+      bg+=mountains('#2a4a2a','#3a6a3a',450);
+      // Buildings
+      bg+=`<rect x="200" y="300" width="180" height="300" fill="#2a2a3a" stroke="#3a3a4a"/><path d="M180,300 L290,200 L400,300" fill="#3a2a3a"/>`;
+      bg+=`<rect x="500" y="280" width="200" height="320" fill="#2a2535" stroke="#3a3a4a" stroke-width="2"/><path d="M480,280 L600,160 L720,280" fill="#3a2535"/>`;
+      // Signal lights
+      for(let i=0;i<5;i++) bg+=`<circle cx="${300+i*100}" cy="${200+Math.random()*100}" r="5" fill="rgba(100,200,255,0.8)"><animate attributeName="cy" values="${200+Math.random()*100};${50+Math.random()*50}" dur="${1+Math.random()}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.3;1" dur="${1+Math.random()}s" repeatCount="indefinite"/></circle>`;
+      // Distant Han Li silhouette
+      bg+=`<g transform="translate(800,480) scale(0.6)" opacity=".7"><path d="M-12,-15 Q-15,10 -13,35 L13,35 Q15,10 12,-15Z" fill="#1a3a2a"/><ellipse cx="0" cy="-28" rx="9" ry="12" fill="#1a3a2a"/></g>`;
+      // Tense atmosphere
+      bg+=`<rect width="${W}" height="${H}" fill="rgba(200,50,50,0.03)"><animate attributeName="opacity" values="0;.1;0" dur="3s" repeatCount="indefinite"/></rect>`;
+      svg+=bg;
+      svg+=elder(450,550,1.5);
+      break;
+    }
+    case 2: { // Emergency elder meeting
+      bg=`<defs><radialGradient id="g2" cx="500" cy="400" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2a1a2a"/><stop offset="100%" stop-color="#0a050a"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g2)"/>`;
+      // Grand hall interior
+      bg+=`<rect x="100" y="100" width="800" height="700" fill="#1a1020" stroke="#3a2a3a" stroke-width="3" rx="5"/>`;
+      // Pillars
+      for(let i=0;i<4;i++){const px=180+i*220;bg+=`<rect x="${px}" y="120" width="20" height="650" fill="#2a1a2a" stroke="#3a2a3a" stroke-width="1"/>`;}
+      // Table
+      bg+=`<rect x="200" y="400" width="600" height="30" rx="3" fill="#4a2a1a" stroke="#5a3a2a"/>`;
+      // Seats on both sides
+      for(let i=0;i<3;i++){
+        bg+=`<rect x="${220+i*80}" y="440" width="40" height="60" rx="2" fill="#3a1a1a" opacity=".5"/>`;
+        bg+=`<rect x="${540+i*80}" y="440" width="40" height="60" rx="2" fill="#3a1a1a" opacity=".5"/>`;
+      }
+      // Tension particles
+      bg+=particles(10,'rgba(200,100,100,0.3)',200,800,300,700);
+      svg+=bg;
+      // Elders seated
+      svg+=elder(260,420,1.2,{white:true,angry:true});
+      svg+=elder(340,420,1.2);
+      svg+=elder(420,420,1.2,{woman:true});
+      svg+=elder(580,420,1.2);
+      svg+=elder(660,420,1.2,{angry:true});
+      svg+=elder(740,420,1.2);
+      // Sect master center
+      svg+=elder(500,350,1.4,{white:true});
+      break;
+    }
+    case 3: { // Main hall confrontation
+      bg=`<defs><radialGradient id="g3" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#1a1025"/><stop offset="100%" stop-color="#08050a"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g3)"/>`;
+      // Hall
+      bg+=`<rect x="80" y="80" width="840" height="740" fill="#120a18" stroke="#3a2a4a" stroke-width="3" rx="5"/>`;
+      // Pillars
+      for(let i=0;i<6;i++){const px=120+i*150;bg+=`<rect x="${px}" y="100" width="18" height="680" fill="#1a0a20" stroke="#2a1a30"/>`;}
+      // Protection auras around elders
+      for(let i=0;i<5;i++){const ex=200+i*140;bg+=`<ellipse cx="${ex}" cy="400" rx="30" ry="50" fill="none" stroke="rgba(100,150,255,0.2)" stroke-width="2"><animate attributeName="opacity" values=".1;.4;.1" dur="2s" begin="${i*0.3}s" repeatCount="indefinite"/></ellipse>`;}
+      // Tension lines
+      for(let i=0;i<8;i++) bg+=`<line x1="500" y1="600" x2="${200+Math.random()*600}" y2="${200+Math.random()*400}" stroke="rgba(212,168,67,0.1)" stroke-width="1"><animate attributeName="opacity" values="0;.3;0" dur="2s" begin="${i*.2}s" repeatCount="indefinite"/></line>`;
+      bg+=particles(15,'rgba(212,168,67,0.4)',300,700,400,700);
+      svg+=bg;
+      svg+=hanLi(500,600,2.0,{hair:true,glow:true,angry:true});
+      svg+=elder(200,380,1.0,{white:true})+elder(340,380,1.0)+elder(660,380,1.0)+elder(800,380,1.0,{woman:true});
+      break;
+    }
+    case 4: { // Dual cultivation ceremony interrupted
+      bg=`<defs><linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a0a15"/><stop offset="30%" stop-color="#3a1020"/><stop offset="100%" stop-color="#1a0810"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g4)"/>`;
+      // Ceremony platform
+      bg+=`<rect x="300" y="500" width="400" height="80" rx="5" fill="#5a2a2a" stroke="#d4a843" stroke-width="2"/>`;
+      bg+=`<rect x="330" y="480" width="340" height="20" rx="3" fill="#6a3a2a"/>`;
+      // Red silk flying
+      for(let i=0;i<8;i++){const sx=100+Math.random()*800,sy=100+Math.random()*400;
+        bg+=`<path d="M${sx},${sy} Q${sx+30},${sy-20} ${sx+60},${sy+10}" stroke="rgba(200,30,30,0.6)" stroke-width="3" fill="none"><animateTransform attributeName="transform" type="translate" values="0,0;${Math.random()*60-30},${Math.random()*40}" dur="${3+Math.random()*3}s" repeatCount="indefinite"/></path>`;
+      }
+      // Lanterns
+      for(let i=0;i<8;i++) bg+=lantern(120+i*110,200+Math.random()*60);
+      // Breaking barrier effect
+      bg+=`<circle cx="500" cy="500" r="20" fill="none" stroke="rgba(212,168,67,0.6)" stroke-width="3" style="animation:shockwave 2s linear infinite"/>`;
+      for(let i=0;i<12;i++) bg+=`<line x1="500" y1="500" x2="${200+Math.random()*600}" y2="${300+Math.random()*400}" stroke="rgba(212,168,67,0.3)" stroke-width="2"><animate attributeName="opacity" values="0;1;0" dur="1.5s" begin="${i*0.1}s" repeatCount="indefinite"/></line>`;
+      bg+=particles(15,'rgba(255,100,100,0.5)',200,800,300,600);
+      svg+=bg;
+      svg+=hanLi(500,450,1.8,{hair:true,glow:true,angry:true});
+      svg+=nangongWan(500,520,1.5,{red:true,sad:true});
+      // Audience silhouettes
+      for(let i=0;i<6;i++) svg+=guard(150+i*80,700,0.7);
+      for(let i=0;i<6;i++) svg+=guard(550+i*80,700,0.7);
+      break;
+    }
+    case 5: { // Wei Wuya appears
+      bg=`<defs><radialGradient id="g5" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#1a0a20"/><stop offset="100%" stop-color="#0a0510"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g5)"/>`;
+      // Dark aura
+      bg+=`<ellipse cx="500" cy="500" rx="300" ry="200" fill="none" stroke="rgba(80,20,80,0.15)" stroke-width="3"><animate attributeName="rx" values="280;320;280" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".2;.5;.2" dur="3s" repeatCount="indefinite"/></ellipse>`;
+      // Dark particles
+      bg+=particles(20,'rgba(80,20,120,0.5)',200,800,300,700);
+      // VIP seats
+      bg+=`<rect x="600" y="350" width="200" height="30" rx="3" fill="#3a1a2a" stroke="#5a2a3a"/>`;
+      bg+=`<rect x="620" y="320" width="160" height="30" rx="3" fill="#4a2a3a"/>`;
+      svg+=bg;
+      svg+=weiWuya(500,550,2.0,{smirk:true});
+      // Followers
+      svg+=goldenCoreGuy(350,620,1.0)+goldenCoreGuy(650,620,1.0)+goldenCoreGuy(300,650,0.9)+goldenCoreGuy(700,650,0.9);
+      break;
+    }
+    case 6: { // Truth revealed
+      bg=`<defs><radialGradient id="g6" cx="400" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#1a0a15"/><stop offset="100%" stop-color="#080308"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g6)"/>`;
+      // Confrontation energy
+      for(let i=0;i<6;i++) bg+=`<line x1="400" y1="500" x2="600" y2="${300+Math.random()*400}" stroke="rgba(200,50,50,0.2)" stroke-width="1"><animate attributeName="opacity" values="0;.4;0" dur="2s" begin="${i*.3}s" repeatCount="indefinite"/></line>`;
+      // Nangong Wan shaking
+      bg+=`<ellipse cx="300" cy="550" rx="40" ry="60" fill="none" stroke="rgba(200,200,255,0.1)" stroke-width="1"><animate attributeName="opacity" values=".1;.3;.1" dur="1s" repeatCount="indefinite"/></ellipse>`;
+      bg+=particles(8,'rgba(200,50,50,0.3)',300,700,400,700);
+      svg+=bg;
+      svg+=hanLi(500,520,1.7,{angry:true});
+      svg+=weiWuya(700,540,1.6,{smirk:true});
+      svg+=nangongWan(300,560,1.5,{red:true,sad:true});
+      break;
+    }
+    case 7: { // Han Li and Nangong Wan reunite
+      bg=`<defs><radialGradient id="g7" cx="500" cy="500" r="400" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2a1520"/><stop offset="50%" stop-color="#1a0a15"/><stop offset="100%" stop-color="#0a050a"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g7)"/>`;
+      // Warm glow around couple
+      bg+=`<ellipse cx="500" cy="550" rx="120" ry="150" fill="rgba(255,200,150,0.05)"><animate attributeName="rx" values="110;130;110" dur="3s" repeatCount="indefinite"/></ellipse>`;
+      // Red silk floating
+      for(let i=0;i<6;i++){const sx=200+Math.random()*600;
+        bg+=`<path d="M${sx},${200+Math.random()*300} Q${sx+40},${180+Math.random()*200} ${sx+80},${220+Math.random()*300}" stroke="rgba(200,30,30,0.4)" stroke-width="2" fill="none"><animateTransform attributeName="transform" type="translate" values="0,0;${Math.random()*40-20},${Math.random()*30}" dur="${4+Math.random()*3}s" repeatCount="indefinite"/></path>`;
+      }
+      // Tear particles
+      bg+=particles(6,'rgba(100,180,255,0.4)',420,580,400,600);
+      bg+=particles(8,'rgba(255,200,150,0.3)',350,650,500,700);
+      svg+=bg;
+      svg+=hanLi(440,550,1.8);
+      svg+=nangongWan(560,550,1.7,{red:true,sad:true});
+      break;
+    }
+    case 8: { // Joint breakout - fighting
+      bg=`<defs><radialGradient id="g8" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2a1a0a"/><stop offset="100%" stop-color="#0a0502"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g8)"/>`;
+      // Sword lights
+      for(let i=0;i<10;i++){const sx=100+Math.random()*800,sy=100+Math.random()*600;
+        bg+=`<line x1="500" y1="500" x2="${sx}" y2="${sy}" stroke="rgba(200,220,255,0.6)" stroke-width="2"><animate attributeName="opacity" values="0;1;0" dur="${0.5+Math.random()}s" begin="${i*0.1}s" repeatCount="indefinite"/></line>`;
+      }
+      // Sparks
+      for(let i=0;i<20;i++) bg+=`<circle cx="${200+Math.random()*600}" cy="${200+Math.random()*500}" r="${1+Math.random()*3}" fill="rgba(255,200,100,0.8)"><animate attributeName="opacity" values="0;1;0" dur="${0.3+Math.random()*0.5}s" begin="${Math.random()*2}s" repeatCount="indefinite"/></circle>`;
+      // Shaking effect
+      bg+=`<rect width="${W}" height="${H}" fill="rgba(200,100,50,0.02)" style="animation:shake 0.3s linear infinite"/>`;
+      bg+=particles(20,'rgba(255,150,50,0.6)',200,800,300,700);
+      svg+=bg;
+      svg+=sword(540,430,-30,1.5);
+      svg+=hanLi(500,550,1.8,{hair:true,glow:true,fighting:true});
+      svg+=nangongWan(460,570,1.4,{red:true});
+      // Enemies around
+      svg+=goldenCoreGuy(250,600,1.0)+goldenCoreGuy(750,600,1.0)+goldenCoreGuy(300,650,0.9)+goldenCoreGuy(700,650,0.9);
+      svg+=goldenCoreGuy(200,680,0.8)+goldenCoreGuy(800,680,0.8);
+      break;
+    }
+    case 9: { // Nascent Soul power - golden avatar
+      bg=`<defs><radialGradient id="g9" cx="500" cy="400" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#3a2a0a"/><stop offset="30%" stop-color="#2a1a05"/><stop offset="100%" stop-color="#0a0502"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g9)"/>`;
+      // Golden avatar glow
+      bg+=`<ellipse cx="500" cy="350" rx="200" ry="250" fill="rgba(212,168,67,0.08)"><animate attributeName="rx" values="180;220;180" dur="2s" repeatCount="indefinite"/></ellipse>`;
+      // Shockwaves
+      for(let i=0;i<3;i++) bg+=`<circle cx="500" cy="500" r="20" fill="none" stroke="rgba(212,168,67,${.5-i*.1})" stroke-width="3" style="animation:shockwave 2.5s linear ${i*.6}s infinite"/>`;
+      // Flying debris
+      for(let i=0;i<15;i++) bg+=`<rect x="500" y="500" width="${4+Math.random()*10}" height="${4+Math.random()*8}" fill="#5a4a3a" rx="1"><animateTransform attributeName="transform" type="translate" values="0,0;${(Math.random()-.5)*500},${-100-Math.random()*300}" dur="${1+Math.random()*2}s" begin="${Math.random()}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="${1+Math.random()*2}s" begin="${Math.random()}s" repeatCount="indefinite"/></rect>`;
+      bg+=particles(25,'rgba(212,168,67,0.7)',200,800,200,700);
+      svg+=bg;
+      // Golden avatar (large)
+      svg+=`<g transform="translate(500,250) scale(3)" opacity=".7" style="animation:spiritPulse 3s ease-in-out infinite">
+        <ellipse cx="0" cy="-38" rx="14" ry="17" fill="rgba(212,168,67,0.8)"/>
+        <path d="M-14,-48 Q0,-58 14,-48" fill="rgba(180,140,40,0.8)"/>
+        <path d="M-18,-20 Q-22,20 -20,60 L20,60 Q22,20 18,-20Z" fill="rgba(212,168,67,0.6)"/>
+        <ellipse cx="-5" cy="-40" rx="2.5" ry="2" fill="rgba(150,120,30,0.9)"/><ellipse cx="5" cy="-40" rx="2.5" ry="2" fill="rgba(150,120,30,0.9)"/>
+      </g>`;
+      svg+=hanLi(500,650,1.8,{hair:true,glow:true});
+      // Defeated cultivators flying away
+      for(let i=0;i<3;i++) svg+=`<g transform="translate(${250+i*250},${400+i*30}) scale(0.7)" opacity=".6"><animateTransform attributeName="transform" type="translate" values="${250+i*250},${400+i*30};${100+i*300},${100+i*50}" dur="2s" fill="freeze"/><path d="M-8,-10 Q-10,8 -8,28 L8,28 Q10,8 8,-10Z" fill="#5a4a2a"/><ellipse cx="0" cy="-18" rx="7" ry="9" fill="#e8c8a0"/></g>`;
+      break;
+    }
+    case 10: { // Formation lockdown
+      bg=`<defs><radialGradient id="g10" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0a1a2a"/><stop offset="100%" stop-color="#050a15"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g10)"/>`;
+      // Formation lines on ground
+      for(let i=0;i<12;i++){const angle=i*30*Math.PI/180;
+        bg+=`<line x1="500" y1="500" x2="${500+Math.cos(angle)*400}" y2="${500+Math.sin(angle)*400}" stroke="rgba(100,200,255,0.3)" stroke-width="2"><animate attributeName="opacity" values=".2;.8;.2" dur="2s" begin="${i*0.15}s" repeatCount="indefinite"/></line>`;
+      }
+      // Concentric circles
+      for(let i=1;i<=4;i++) bg+=`<circle cx="500" cy="500" r="${i*100}" fill="none" stroke="rgba(100,200,255,${0.4-i*0.08})" stroke-width="2"><animate attributeName="opacity" values=".2;.6;.2" dur="${2+i*0.5}s" repeatCount="indefinite"/></circle>`;
+      // Rune symbols
+      for(let i=0;i<8;i++){const angle=i*45*Math.PI/180,rx=500+Math.cos(angle)*250,ry=500+Math.sin(angle)*250;
+        bg+=`<text x="${rx-8}" y="${ry}" fill="rgba(100,200,255,0.6)" font-size="20"><animate attributeName="opacity" values=".3;1;.3" dur="2s" begin="${i*0.25}s" repeatCount="indefinite"/>禁</text>`;
+      }
+      bg+=particles(15,'rgba(100,200,255,0.4)',200,800,300,700);
+      svg+=bg;
+      svg+=hanLi(460,550,1.7,{angry:true});
+      svg+=nangongWan(540,560,1.5,{red:true});
+      break;
+    }
+    case 11: { // Breaking through formation
+      bg=`<defs><radialGradient id="g11" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2a2a0a"/><stop offset="100%" stop-color="#0a0a02"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g11)"/>`;
+      // Golden torrent
+      bg+=`<path d="M400,600 Q450,400 500,300 Q550,400 600,600" stroke="rgba(212,168,67,0.8)" stroke-width="6" fill="none"><animate attributeName="stroke-width" values="4;10;4" dur="1s" repeatCount="indefinite"/></path>`;
+      bg+=`<path d="M420,600 Q460,420 500,320 Q540,420 580,600" stroke="rgba(255,220,100,0.4)" stroke-width="15" fill="none"><animate attributeName="opacity" values=".3;.7;.3" dur="0.8s" repeatCount="indefinite"/></path>`;
+      // Cracking formation
+      for(let i=0;i<8;i++){const angle=i*45*Math.PI/180;
+        bg+=`<line x1="500" y1="400" x2="${500+Math.cos(angle)*300}" y2="${400+Math.sin(angle)*300}" stroke="rgba(100,200,255,0.5)" stroke-width="2"><animate attributeName="opacity" values="1;0" dur="2s" fill="freeze"/></line>`;
+      }
+      // Flying debris
+      for(let i=0;i<20;i++) bg+=`<rect x="500" y="400" width="${3+Math.random()*8}" height="${3+Math.random()*6}" fill="rgba(100,200,255,0.6)" rx="1"><animateTransform attributeName="transform" type="translate" values="0,0;${(Math.random()-.5)*400},${(Math.random()-.5)*400}" dur="2s" fill="freeze"/><animate attributeName="opacity" values="1;0" dur="2s" fill="freeze"/></rect>`;
+      bg+=particles(20,'rgba(212,168,67,0.6)',300,700,300,600);
+      // Insects (噬金虫)
+      for(let i=0;i<8;i++) bg+=`<circle cx="${450+Math.random()*100}" cy="${350+Math.random()*100}" r="3" fill="rgba(200,180,50,0.8)"><animate attributeName="cx" values="${450+Math.random()*100};${300+Math.random()*400}" dur="${1+Math.random()}s" repeatCount="indefinite"/><animate attributeName="cy" values="${350+Math.random()*100};${200+Math.random()*300}" dur="${1+Math.random()}s" repeatCount="indefinite"/></circle>`;
+      svg+=bg;
+      svg+=sword(480,380,-10,1.8);
+      svg+=hanLi(450,550,1.8,{hair:true,glow:true,fighting:true});
+      svg+=nangongWan(550,570,1.4,{red:true});
+      break;
+    }
+    case 12: { // Sect chaos
+      bg=`<defs><linearGradient id="g12" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a0a0a"/><stop offset="30%" stop-color="#2a1510"/><stop offset="100%" stop-color="#0a0505"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g12)"/>`;
+      // Buildings in ruins
+      bg+=`<rect x="100" y="300" width="150" height="350" fill="#2a1a1a" stroke="#3a2a1a"/><path d="M80,300 L175,200 L270,300" fill="#3a1a1a"/>`;
+      bg+=`<rect x="700" y="350" width="120" height="300" fill="#2a1a1a" stroke="#3a2a1a"/><path d="M680,350 L760,260 L840,350" fill="#3a1a1a"/>`;
+      // Collapsed building
+      bg+=`<rect x="400" y="400" width="200" height="200" fill="#2a1515" stroke="#3a2020" transform="rotate(5,500,500)"/>`;
+      // Smoke
+      for(let i=0;i<4;i++){const sx=200+i*200;
+        bg+=`<ellipse cx="${sx}" cy="${200+Math.random()*100}" rx="${30+Math.random()*20}" ry="${20+Math.random()*15}" fill="rgba(80,80,80,0.3)"><animate attributeName="cy" values="${200+Math.random()*100};${50+Math.random()*50}" dur="${5+Math.random()*5}s" repeatCount="indefinite"/><animate attributeName="opacity" values=".3;.1;.3" dur="${5+Math.random()*5}s" repeatCount="indefinite"/></ellipse>`;
+      }
+      // Battle flashes
+      for(let i=0;i<8;i++) bg+=`<circle cx="${100+Math.random()*800}" cy="${300+Math.random()*400}" r="${5+Math.random()*10}" fill="rgba(255,200,100,0.5)"><animate attributeName="opacity" values="0;.8;0" dur="${0.5+Math.random()}s" begin="${Math.random()*2}s" repeatCount="indefinite"/></circle>`;
+      bg+=particles(12,'rgba(255,100,50,0.5)',100,900,300,700);
+      svg+=bg;
+      svg+=hanLi(450,550,1.7,{hair:true,angry:true,run:true});
+      svg+=nangongWan(520,560,1.4,{red:true,run:true});
+      break;
+    }
+    case 13: { // Elder blocks path
+      bg=`<defs><radialGradient id="g13" cx="500" cy="500" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#1a1a2a"/><stop offset="100%" stop-color="#0a0a15"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g13)"/>`;
+      // Spirit storm between fighters
+      for(let i=0;i<12;i++) bg+=`<line x1="${350+Math.random()*100}" y1="${400+Math.random()*100}" x2="${550+Math.random()*100}" y2="${400+Math.random()*100}" stroke="rgba(200,200,255,0.4)" stroke-width="2"><animate attributeName="opacity" values="0;1;0" dur="${0.3+Math.random()*0.5}s" begin="${Math.random()}s" repeatCount="indefinite"/></line>`;
+      // Clash point
+      bg+=`<circle cx="500" cy="480" r="30" fill="rgba(255,200,100,0.15)"><animate attributeName="r" values="25;40;25" dur="1s" repeatCount="indefinite"/></circle>`;
+      bg+=`<circle cx="500" cy="480" r="20" fill="none" stroke="rgba(212,168,67,0.4)" stroke-width="2" style="animation:shockwave 1.5s linear infinite"/>`;
+      bg+=particles(15,'rgba(200,200,255,0.5)',350,650,350,600);
+      svg+=bg;
+      svg+=sword(420,450,-20,1.5);
+      svg+=hanLi(380,550,1.8,{hair:true,glow:true,fighting:true,angry:true});
+      svg+=elder(620,550,1.8,{white:true,angry:true});
+      break;
+    }
+    case 14: { // Breaking through the gate
+      bg=`<defs><linearGradient id="g14" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a2a4a"/><stop offset="30%" stop-color="#2a4a6a"/><stop offset="60%" stop-color="#3a6a4a"/><stop offset="100%" stop-color="#1a3a2a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g14)"/>`;
+      bg+=clouds(3,50,200,'rgba(255,255,255,0.2)');
+      // Gate structure receding
+      bg+=`<rect x="380" y="300" width="240" height="400" fill="none" stroke="#5a5a6a" stroke-width="6" rx="5" opacity=".6"/>`;
+      bg+=`<path d="M360,300 L500,200 L640,300" fill="#4a4a5a" opacity=".6"/>`;
+      // Pursuit spells like meteors
+      for(let i=0;i<15;i++){const sx=400+Math.random()*200,sy=500+Math.random()*200;
+        bg+=`<circle cx="${sx}" cy="${sy}" r="${2+Math.random()*4}" fill="rgba(255,150,50,0.8)"><animate attributeName="cx" values="${sx};${sx-300+Math.random()*200}" dur="${1+Math.random()}s" begin="${Math.random()*2}s" repeatCount="indefinite"/><animate attributeName="cy" values="${sy};${sy-200-Math.random()*200}" dur="${1+Math.random()}s" begin="${Math.random()*2}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="${1+Math.random()}s" begin="${Math.random()*2}s" repeatCount="indefinite"/></circle>`;
+      }
+      // Golden shield
+      bg+=`<ellipse cx="350" cy="500" rx="80" ry="100" fill="none" stroke="rgba(212,168,67,0.5)" stroke-width="4"><animate attributeName="opacity" values=".3;.8;.3" dur="1s" repeatCount="indefinite"/></ellipse>`;
+      // Light trail
+      bg+=`<path d="M350,550 Q200,400 100,200" stroke="rgba(100,200,255,0.5)" stroke-width="5" fill="none" stroke-dasharray="10,5"><animate attributeName="stroke-dashoffset" values="0;-30" dur="0.8s" repeatCount="indefinite"/></path>`;
+      bg+=particles(15,'rgba(212,168,67,0.5)',100,500,300,600);
+      svg+=bg;
+      // Han Li pulling Nangong Wan, flying
+      svg+=`<g transform="translate(280,480) scale(1.5)" style="animation:float 1.5s ease-in-out infinite">
+        <path d="M-12,-15 Q-15,10 -13,35 L13,35 Q15,10 12,-15Z" fill="#2a5a3a"/>
+        <ellipse cx="0" cy="-28" rx="9" ry="12" fill="#f0d0a0"/><path d="M-9,-36 Q0,-44 9,-36" fill="#1a1a2a"/>
+        <path d="M12,-10 Q25,-5 30,0" stroke="#2a5a3a" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>`;
+      svg+=`<g transform="translate(320,490) scale(1.3)" style="animation:float 1.5s ease-in-out .3s infinite">
+        <path d="M-14,-18 Q-17,16 -15,48 L15,48 Q17,16 14,-18Z" fill="#e8e8f0"/>
+        <ellipse cx="0" cy="-32" rx="11" ry="14" fill="#f5ddc0"/><path d="M-11,-38 Q0,-48 11,-38" fill="#1a1a2a"/>
+        <path d="M-14,-34 Q-20,-15 -18,5" stroke="#1a1a2a" stroke-width="2.5" fill="none"/>
+      </g>`;
+      break;
+    }
+    case 15: { // Escape into forest
+      bg=`<defs><linearGradient id="g15" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a3a1a"/><stop offset="20%" stop-color="#0a2a0a"/><stop offset="50%" stop-color="#1a4a1a"/><stop offset="100%" stop-color="#0a1a0a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g15)"/>`;
+      // Trees
+      for(let i=0;i<12;i++){const tx=50+i*85;
+        bg+=`<rect x="${tx}" y="${200+Math.random()*100}" width="${8+Math.random()*6}" height="${400+Math.random()*200}" fill="#1a2a0a" opacity="${.5+Math.random()*.3}"/>`;
+        bg+=`<ellipse cx="${tx+4}" cy="${180+Math.random()*80}" rx="${30+Math.random()*20}" ry="${25+Math.random()*15}" fill="rgba(30,80,20,0.6)"/>`;
+      }
+      // Mist
+      for(let i=0;i<6;i++) bg+=`<ellipse cx="${100+Math.random()*800}" cy="${400+Math.random()*200}" rx="${80+Math.random()*60}" ry="${30+Math.random()*20}" fill="rgba(200,220,200,0.08)"><animate attributeName="cx" values="${100+Math.random()*800};${200+Math.random()*600}" dur="${8+Math.random()*5}s" repeatCount="indefinite"/></ellipse>`;
+      // Sunbeams through leaves
+      for(let i=0;i<5;i++){const bx=150+Math.random()*700;
+        bg+=`<polygon points="${bx},100 ${bx-30},700 ${bx+30},700" fill="rgba(255,255,200,0.03)"/>`;
+      }
+      // Light spots on ground
+      for(let i=0;i<15;i++) bg+=`<ellipse cx="${100+Math.random()*800}" cy="${700+Math.random()*200}" rx="${5+Math.random()*10}" ry="${3+Math.random()*5}" fill="rgba(255,255,200,0.1)"><animate attributeName="opacity" values=".05;.15;.05" dur="${3+Math.random()*3}s" repeatCount="indefinite"/></ellipse>`;
+      svg+=bg;
+      svg+=hanLi(400,580,1.6,{run:true});
+      svg+=nangongWan(520,590,1.4,{run:true});
+      break;
+    }
+    case 16: { // Hidden cave
+      bg=`<defs><radialGradient id="g16" cx="500" cy="400" r="500" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#1a2a1a"/><stop offset="100%" stop-color="#050a05"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g16)"/>`;
+      // Cave entrance
+      bg+=`<path d="M300,300 Q400,200 500,220 Q600,200 700,300 L700,700 L300,700Z" fill="#0a150a" stroke="#1a2a1a" stroke-width="2"/>`;
+      // Vines
+      for(let i=0;i<8;i++){const vx=320+i*50;
+        bg+=`<path d="M${vx},200 Q${vx+Math.random()*20-10},${350+Math.random()*100} ${vx+Math.random()*30-15},${500+Math.random()*100}" stroke="#2a5a1a" stroke-width="${2+Math.random()*2}" fill="none" opacity="${.4+Math.random()*.3}"/>`;
+      }
+      // Spirit barrier at entrance
+      bg+=`<ellipse cx="500" cy="450" rx="180" ry="200" fill="none" stroke="rgba(100,200,100,0.15)" stroke-width="3"><animate attributeName="opacity" values=".1;.3;.1" dur="3s" repeatCount="indefinite"/></ellipse>`;
+      // Formation runes inside
+      for(let i=0;i<5;i++){const rx=350+i*70,ry=550+Math.random()*50;
+        bg+=`<circle cx="${rx}" cy="${ry}" r="8" fill="none" stroke="rgba(212,168,67,0.4)" stroke-width="1"><animate attributeName="opacity" values=".2;.7;.2" dur="${2+i*0.3}s" repeatCount="indefinite"/></circle>`;
+      }
+      bg+=particles(8,'rgba(100,200,100,0.3)',300,700,300,600);
+      svg+=bg;
+      svg+=hanLi(420,550,1.6);
+      svg+=nangongWan(560,560,1.4);
+      break;
+    }
+    case 17: { // Cave warmth - campfire scene
+      bg=`<defs><radialGradient id="g17" cx="500" cy="600" r="400" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#2a1a0a"/><stop offset="40%" stop-color="#1a0a05"/><stop offset="100%" stop-color="#050302"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#g17)"/>`;
+      // Cave walls
+      bg+=`<path d="M0,0 L${W},0 L${W},200 Q800,280 600,250 Q400,300 200,260 L0,200Z" fill="#0a0505"/>`;
+      bg+=`<path d="M0,0 Q150,100 100,${H}" fill="#080404" opacity=".8"/>`;
+      bg+=`<path d="M${W},0 Q850,100 900,${H}" fill="#080404" opacity=".8"/>`;
+      // Campfire
+      bg+=`<g transform="translate(500,700)">
+        <polygon points="-20,0 -15,-8 -8,0 -3,-12 3,0 8,-8 15,0 20,-5 25,0" fill="#3a1a0a"/>
+        <g style="animation:fireFlicker 0.5s ease-in-out infinite">
+          <ellipse cx="0" cy="-25" rx="15" ry="28" fill="rgba(255,120,30,0.5)"/>
+          <ellipse cx="0" cy="-30" rx="8" ry="18" fill="rgba(255,180,50,0.6)"/>
+          <ellipse cx="0" cy="-35" rx="4" ry="10" fill="rgba(255,230,100,0.7)"/>
+        </g>
+      </g>`;
+      // Fire light on walls
+      bg+=`<ellipse cx="500" cy="600" rx="200" ry="150" fill="rgba(255,150,50,0.04)"><animate attributeName="rx" values="190;210;190" dur="1s" repeatCount="indefinite"/></ellipse>`;
+      // Moon through cave entrance
+      bg+=`<circle cx="850" cy="150" r="30" fill="rgba(240,232,192,0.3)"/>`;
+      bg+=particles(8,'rgba(255,180,50,0.4)',400,600,550,680);
+      svg+=bg;
+      // Han Li and Nangong Wan together
+      svg+=hanLi(440,580,1.6,{sit:true});
+      svg+=nangongWan(540,590,1.4,{happy:true});
+      break;
+    }
+    case 18: { // Pursuers approach - dawn
+      bg=`<defs><linearGradient id="g18" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a2a3a"/><stop offset="20%" stop-color="#3a3a4a"/><stop offset="40%" stop-color="#4a4a5a"/><stop offset="100%" stop-color="#1a1a2a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g18)"/>`;
+      // Trees in dawn light
+      for(let i=0;i<10;i++){const tx=50+i*100;
+        bg+=`<rect x="${tx}" y="${150+Math.random()*100}" width="${6+Math.random()*5}" height="${500+Math.random()*200}" fill="#1a1a2a" opacity="${.5+Math.random()*.3}"/>`;
+        bg+=`<ellipse cx="${tx+3}" cy="${130+Math.random()*80}" rx="${25+Math.random()*20}" ry="${20+Math.random()*15}" fill="rgba(30,40,50,0.5)"/>`;
+      }
+      // Search lights
+      for(let i=0;i<6;i++){const sx=100+Math.random()*800;
+        bg+=`<circle cx="${sx}" cy="${300+Math.random()*300}" r="15" fill="rgba(200,100,50,0.15)"><animate attributeName="cx" values="${sx};${sx+100-Math.random()*200};${sx}" dur="${3+Math.random()*3}s" repeatCount="indefinite"/></circle>`;
+      }
+      // Footstep indicators
+      for(let i=0;i<8;i++) bg+=`<circle cx="${100+i*100}" cy="${700+Math.random()*100}" r="4" fill="rgba(200,100,50,0.3)"><animate attributeName="opacity" values="0;.5;0" dur="2s" begin="${i*0.3}s" repeatCount="indefinite"/></circle>`;
+      // Cave interior fading
+      bg+=`<rect x="0" y="0" width="${W}" height="${H}" fill="rgba(10,5,5,0.5)"/>`;
+      bg+=particles(5,'rgba(200,100,50,0.3)',100,900,300,700);
+      svg+=bg;
+      svg+=hanLi(450,550,1.7,{angry:true});
+      svg+=nangongWan(550,570,1.3);
+      break;
+    }
+    case 19: { // New journey - overlooking mountains
+      bg=`<defs><linearGradient id="g19" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a4a6a"/><stop offset="20%" stop-color="#4a7a9a"/><stop offset="40%" stop-color="#8ab4d0"/><stop offset="55%" stop-color="#c0d8e8"/><stop offset="70%" stop-color="#4a7a4a"/><stop offset="100%" stop-color="#1a3a1a"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#g19)"/>`;
+      bg+=clouds(5,30,200,'rgba(255,255,255,0.3)');
+      // Vast mountain landscape
+      bg+=`<path d="M0,${H} L0,${550} Q100,${400} 200,${480} Q350,${350} 500,${420} Q650,${300} 800,${450} Q900,${380} 1000,${500} L1000,${H}Z" fill="#3a6a3a" opacity=".4"/>`;
+      bg+=`<path d="M0,${H} L0,${600} Q150,${500} 300,${550} Q450,${450} 600,${520} Q750,${480} 900,${560} L1000,${530} L1000,${H}Z" fill="#2a5a2a"/>`;
+      // Southeast direction indicator
+      bg+=`<path d="M700,500 L900,380" stroke="rgba(212,168,67,0.4)" stroke-width="2" stroke-dasharray="8,4"><animate attributeName="opacity" values=".3;.8;.3" dur="2s" repeatCount="indefinite"/></path>`;
+      bg+=`<text x="880" y="370" fill="rgba(212,168,67,0.6)" font-size="14" font-family="SimSun">乱星海 →</text>`;
+      // Wind effect
+      for(let i=0;i<5;i++) bg+=`<line x1="${100+Math.random()*200}" y1="${300+Math.random()*200}" x2="${300+Math.random()*200}" y2="${250+Math.random()*150}" stroke="rgba(200,220,255,0.1)" stroke-width="1"><animate attributeName="x1" values="${100+Math.random()*200};-200" dur="${2+Math.random()*2}s" repeatCount="indefinite"/><animate attributeName="x2" values="${300+Math.random()*200};100" dur="${2+Math.random()*2}s" repeatCount="indefinite"/></line>`;
+      // Cliff they stand on
+      bg+=`<path d="M100,${H} L150,600 Q200,550 350,570 Q400,540 450,560 L500,620 L500,${H}Z" fill="#1a3a1a"/>`;
+      bg+=particles(5,'rgba(255,255,255,0.2)',600,900,300,500);
+      svg+=bg;
+      svg+=hanLi(300,500,1.8,{hair:true});
+      svg+=nangongWan(400,510,1.5);
+      break;
+    }
+  }
+  svg+=`</svg>`;
+  return svg;
+}
+
+// === Navigation ===
+epTitle.addEventListener('click',()=>{epTitle.style.opacity='0';setTimeout(()=>{epTitle.style.display='none';subBox.style.display='block';ctrls.style.display='flex';goTo(0)},2000)});
+document.getElementById('btn-prev').addEventListener('click',()=>{if(cur>0)goTo(cur-1)});
+document.getElementById('btn-next').addEventListener('click',()=>{if(cur<SCENES.length-1)goTo(cur+1)});
+document.getElementById('btn-auto').addEventListener('click',toggleAuto);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();if(cur<SCENES.length-1)goTo(cur+1)}if(e.key==='ArrowLeft'&&cur>0)goTo(cur-1)});
+
+function toggleAuto(){auto=!auto;document.getElementById('btn-auto').textContent=auto?'⏸ 暂停':'▶ 自动播放';if(auto)schedAuto();else clearTimeout(aTimer)}
+function schedAuto(){if(!auto)return;aTimer=setTimeout(()=>{if(cur<SCENES.length-1){goTo(cur+1);schedAuto()}else{auto=false;document.getElementById('btn-auto').textContent='▶ 自动播放'}},10000)}
+
+function goTo(idx){
+  clearTimeout(tTimer);
+  document.querySelectorAll('.scene.active').forEach(e=>e.classList.remove('active'));
+  let el=document.getElementById('sc-'+idx);
+  if(!el){el=document.createElement('div');el.className='scene';el.id='sc-'+idx;el.innerHTML=drawScene(idx);stage.appendChild(el)}
+  setTimeout(()=>el.classList.add('active'),50);
+  cur=idx;
+  scTitle.textContent=SCENES[idx].t;
+  scInd.textContent=`${idx+1} / ${SCENES.length}`;
+  typeText(SCENES[idx].s);
+}
+
+function typeText(text){
+  subText.innerHTML='';let i=0;
+  const c=document.createElement('span');c.className='cursor';
+  function t(){if(i<text.length){subText.textContent=text.slice(0,i+1);subText.appendChild(c);i++;tTimer=setTimeout(t,45)}else{subText.textContent=text}}
+  t();
+}
+</script>
+</body>
+</html>
