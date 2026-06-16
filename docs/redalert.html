@@ -1,0 +1,1954 @@
+<!--
+  红色警戒2 风格 3D 体素 RTS 游戏 - 第6轮
+  本轮新增：发电厂功能化 + 蓝方自动建造AI + 防御塔 + A*搜索上限提升
+  - 发电厂：每座+50电力上限，建筑消耗电力（指挥中心-20，兵营-10），电力不足时生产速度减半
+  - 蓝方自动建造：每30秒检查，缺兵营则自动建造，保持经济韧性
+  - 防御塔：$800，HP600，自动攻击射程10内敌方单位
+  - A*搜索上限：400→1200，保证跨地图路径可靠
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>红色警戒 - 体素RTS</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
+canvas { display: block; }
+
+#info-panel {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 140px; background: linear-gradient(to bottom, #1a1a2e, #0f0f1a);
+  border-top: 2px solid #444; display: flex; color: #0f0;
+  font-size: 13px; z-index: 10;
+}
+#info-left { width: 200px; padding: 10px; border-right: 1px solid #333; }
+#info-center { flex: 1; padding: 10px; }
+#info-right { width: 200px; padding: 10px; border-left: 1px solid #333; }
+#info-panel h3 { color: #ff0; margin-bottom: 5px; font-size: 14px; }
+#info-panel .stat { margin: 3px 0; }
+.label { color: #888; }
+.value { color: #0f0; }
+
+#minimap {
+  position: fixed; bottom: 150px; right: 10px;
+  width: 180px; height: 180px;
+  background: #111; border: 2px solid #444;
+  z-index: 10;
+}
+#minimap canvas { width: 100%; height: 100%; }
+
+#resources {
+  position: fixed; top: 10px; left: 10px;
+  background: rgba(0,0,0,0.8); border: 1px solid #444;
+  padding: 8px 15px; color: #0f0; font-size: 14px;
+  z-index: 10; border-radius: 4px;
+}
+#resources span { margin-right: 20px; }
+#resources .ore { color: #fa0; }
+#resources .power { color: #0af; }
+#resources .money { color: #0f0; }
+
+#selection-box {
+  position: fixed; border: 1px solid #0f0;
+  background: rgba(0,255,0,0.1);
+  pointer-events: none; display: none; z-index: 5;
+}
+
+#tooltip {
+  position: fixed; background: rgba(0,0,0,0.85);
+  border: 1px solid #0f0; padding: 5px 10px;
+  color: #0f0; font-size: 12px; pointer-events: none;
+  display: none; z-index: 20; border-radius: 3px;
+}
+
+#battle-log {
+  position: fixed; top: 10px; right: 200px;
+  width: 280px; max-height: 200px; overflow-y: auto;
+  background: rgba(0,0,0,0.7); border: 1px solid #444;
+  padding: 8px; color: #0f0; font-size: 11px;
+  z-index: 10; border-radius: 4px;
+}
+#battle-log h4 { color: #ff0; margin-bottom: 4px; }
+.log-entry { margin: 2px 0; border-bottom: 1px solid #222; padding: 2px 0; }
+.log-entry.damage { color: #f88; }
+.log-entry.kill { color: #f44; font-weight: bold; }
+.log-entry.economy { color: #fa0; }
+.log-entry.production { color: #0af; }
+
+/* 第3轮新增：生产按钮 */
+.prod-btn {
+  display: inline-block; margin: 3px; padding: 4px 10px;
+  background: #1a3a1a; border: 1px solid #0f0; color: #0f0;
+  cursor: pointer; font-family: 'Courier New', monospace; font-size: 12px;
+  border-radius: 3px; transition: background 0.2s;
+}
+.prod-btn:hover { background: #2a5a2a; }
+.prod-btn.disabled { opacity: 0.4; cursor: not-allowed; border-color: #666; color: #666; }
+.prod-btn .countdown { color: #ff0; }
+
+/* 第3轮新增：胜负画面 */
+#game-over {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.75); display: none; z-index: 100;
+  justify-content: center; align-items: center; flex-direction: column;
+}
+#game-over h1 { font-size: 72px; margin-bottom: 20px; text-shadow: 0 0 30px currentColor; }
+#game-over .win { color: #0f0; }
+#game-over .lose { color: #f44; }
+#game-over p { color: #ccc; font-size: 20px; }
+#game-over button {
+  margin-top: 30px; padding: 10px 30px; background: #1a3a1a;
+  border: 2px solid #0f0; color: #0f0; font-size: 18px; cursor: pointer;
+  font-family: 'Courier New', monospace; border-radius: 5px;
+}
+#game-over button:hover { background: #2a5a2a; }
+
+#build-mode-indicator {
+  position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.9); border: 2px solid #0f0; padding: 8px 20px;
+  color: #0f0; font-size: 14px; z-index: 20; display: none; border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}
+#build-ghost {
+  position: fixed; pointer-events: none; z-index: 15; display: none;
+  width: 40px; height: 40px; border: 2px dashed #0f0;
+  background: rgba(0,255,0,0.15); font-size: 10px; color: #0f0;
+  text-align: center; line-height: 40px; font-family: 'Courier New', monospace;
+}
+</style>
+</head>
+<body>
+
+<div id="resources">
+  <span class="money">$ <span id="money-val">5000</span></span>
+  <span class="ore">矿: <span id="ore-val">0</span></span>
+  <span class="power">电力: <span id="power-val">100/100</span></span>
+</div>
+
+<div id="battle-log">
+  <h4>战斗日志</h4>
+  <div id="log-entries"></div>
+</div>
+
+<div id="build-mode-indicator">建造模式：右键点击空地放置建筑 | ESC取消</div>
+<div id="build-ghost"></div>
+
+<div id="selection-box"></div>
+<div id="tooltip"></div>
+
+<div id="info-panel">
+  <div id="info-left">
+    <h3>选择</h3>
+    <div id="sel-info">无选中</div>
+  </div>
+  <div id="info-center">
+    <h3>战场信息</h3>
+    <div id="battle-info">就绪。左键选择单位，右键移动/攻击。</div>
+    <div id="production-panel"></div>
+  </div>
+  <div id="info-right">
+    <h3>操作</h3>
+    <div class="stat"><span class="label">WASD/方向键: </span><span class="value">移动视角</span></div>
+    <div class="stat"><span class="label">鼠标滚轮: </span><span class="value">缩放</span></div>
+    <div class="stat"><span class="label">左键: </span><span class="value">选择</span></div>
+    <div class="stat"><span class="label">右键: </span><span class="value">移动/攻击/采矿/建造</span></div>
+    <div class="stat"><span class="label">ESC: </span><span class="value">取消建造</span></div>
+  </div>
+</div>
+
+<div id="minimap"><canvas id="minimap-canvas" width="180" height="180"></canvas></div>
+
+<!-- 第3轮新增：胜负画面 -->
+<div id="game-over">
+  <h1 id="game-over-text"></h1>
+  <p id="game-over-sub"></p>
+  <button onclick="location.reload()">重新开始</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
+<script>
+// ===== 全局状态 =====
+const MAP_SIZE = 64;
+const TILE_SIZE = 2;
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const aspect = window.innerWidth / window.innerHeight;
+const frustum = 40;
+const camera = new THREE.OrthographicCamera(
+  -frustum * aspect, frustum * aspect, frustum, -frustum, 0.1, 500
+);
+camera.position.set(60, 60, 60);
+camera.lookAt(0, 0, 0);
+
+const ambientLight = new THREE.AmbientLight(0x404050, 0.6);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.0);
+dirLight.position.set(50, 80, 30);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.left = -80; dirLight.shadow.camera.right = 80;
+dirLight.shadow.camera.top = 80; dirLight.shadow.camera.bottom = -80;
+scene.add(dirLight);
+
+scene.fog = new THREE.FogExp2(0x1a1a2e, 0.005);
+scene.background = new THREE.Color(0x1a1a2e);
+
+// ===== 游戏状态 =====
+let gameOver = false;
+let playerMoney = 5000;
+let playerOre = 0;
+let blueMoney = 5000;
+let buildModeType = null; // 第5轮新增：建造模式
+let blueAttackTimer = 60; // 第5轮新增：蓝方进攻计时器
+const terrainMeshes = [];
+
+// ===== 地形数据 =====
+const terrain = [];
+const TERRAIN = { GRASS: 0, WATER: 1, ORE: 2, ROCK: 3 };
+for (let x = 0; x < MAP_SIZE; x++) {
+  terrain[x] = [];
+  for (let z = 0; z < MAP_SIZE; z++) {
+    terrain[x][z] = TERRAIN.GRASS;
+  }
+}
+
+for (let x = 0; x < MAP_SIZE; x++) {
+  const riverZ = Math.floor(MAP_SIZE * 0.4 + Math.sin(x * 0.15) * 4);
+  for (let dz = -2; dz <= 2; dz++) {
+    const z = riverZ + dz;
+    if (z >= 0 && z < MAP_SIZE) terrain[x][z] = TERRAIN.WATER;
+  }
+}
+
+function placeOreField(cx, cz, radius) {
+  for (let x = cx - radius; x <= cx + radius; x++) {
+    for (let z = cz - radius; z <= cz + radius; z++) {
+      if (x >= 0 && x < MAP_SIZE && z >= 0 && z < MAP_SIZE) {
+        const dist = Math.sqrt((x-cx)**2 + (z-cz)**2);
+        if (dist < radius && Math.random() > 0.3 && terrain[x][z] === TERRAIN.GRASS) {
+          terrain[x][z] = TERRAIN.ORE;
+        }
+      }
+    }
+  }
+}
+placeOreField(15, 15, 6);
+placeOreField(50, 10, 5);
+placeOreField(10, 50, 5);
+placeOreField(50, 50, 7);
+placeOreField(30, 10, 5); // 第4轮新增：中部矿区
+placeOreField(30, 55, 5); // 第4轮新增：中部矿区
+placeOreField(10, 30, 4); // 第4轮新增
+placeOreField(55, 30, 4); // 第4轮新增
+
+for (let i = 0; i < 40; i++) {
+  const rx = Math.floor(Math.random() * MAP_SIZE);
+  const rz = Math.floor(Math.random() * MAP_SIZE);
+  if (terrain[rx][rz] === TERRAIN.GRASS) terrain[rx][rz] = TERRAIN.ROCK;
+}
+
+// ===== 构建地形 Mesh =====
+const terrainColors = {
+  [TERRAIN.GRASS]: [0x2d5a1e, 0x3a6b2a, 0x2a5020],
+  [TERRAIN.WATER]: [0x1a4a7a, 0x1555a0, 0x1a5090],
+  [TERRAIN.ORE]: [0xb8860b, 0xdaa520, 0xcd950c],
+  [TERRAIN.ROCK]: [0x666666, 0x777777, 0x5a5a5a],
+};
+
+const terrainGroup = new THREE.Group();
+scene.add(terrainGroup);
+
+function buildTerrain() {
+  const geo = new THREE.BoxGeometry(TILE_SIZE, 0.5, TILE_SIZE);
+  for (let x = 0; x < MAP_SIZE; x++) {
+    terrainMeshes[x] = [];
+    for (let z = 0; z < MAP_SIZE; z++) {
+      const t = terrain[x][z];
+      const colors = terrainColors[t];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const mat = new THREE.MeshLambertMaterial({ color });
+      const h = (t === TERRAIN.WATER) ? -0.3 : (t === TERRAIN.ORE ? 0.3 : 0);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        (x - MAP_SIZE/2) * TILE_SIZE,
+        h,
+        (z - MAP_SIZE/2) * TILE_SIZE
+      );
+      mesh.receiveShadow = true;
+      mesh.userData = { tileX: x, tileZ: z, type: t };
+      terrainGroup.add(mesh);
+      terrainMeshes[x][z] = mesh;
+    }
+  }
+}
+buildTerrain();
+
+// 第4轮新增：更新地形tile（矿区耗尽时调用）
+function updateTerrainTile(tx, tz, newType) {
+  if (tx < 0 || tx >= MAP_SIZE || tz < 0 || tz >= MAP_SIZE) return;
+  terrain[tx][tz] = newType;
+  const mesh = terrainMeshes[tx][tz];
+  if (mesh) {
+    const colors = terrainColors[newType];
+    mesh.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+    mesh.position.y = (newType === TERRAIN.WATER) ? -0.3 : (newType === TERRAIN.ORE ? 0.3 : 0);
+    mesh.userData.type = newType;
+  }
+}
+
+// ===== 体素建筑工厂 =====
+function createVoxelBlock(w, h, d, color) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// ===== 战斗日志 =====
+const logEntries = document.getElementById('log-entries');
+function addBattleLog(text, type) {
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (type ? ' ' + type : '');
+  div.textContent = text;
+  logEntries.insertBefore(div, logEntries.firstChild);
+  while (logEntries.children.length > 30) logEntries.removeChild(logEntries.lastChild);
+}
+
+// ===== 第3轮新增：寻路工具 =====
+function isPassable(tileX, tileZ) {
+  if (tileX < 0 || tileX >= MAP_SIZE || tileZ < 0 || tileZ >= MAP_SIZE) return false;
+  const t = terrain[tileX][tileZ];
+  if (t === TERRAIN.WATER || t === TERRAIN.ROCK) return false;
+  for (const b of buildings) {
+    if (!b.alive) continue;
+    const dx = Math.abs(tileX - b.tileX);
+    const dz = Math.abs(tileZ - b.tileZ);
+    if (dx <= 2 && dz <= 2) return false;
+  }
+  return true;
+}
+
+function worldToTile(wx, wz) {
+  return {
+    x: Math.round(wx / TILE_SIZE + MAP_SIZE / 2),
+    z: Math.round(wz / TILE_SIZE + MAP_SIZE / 2)
+  };
+}
+
+// 第4轮新增：查找可行生成位置
+function findSpawnPos(centerTX, centerTZ) {
+  if (isPassable(centerTX, centerTZ)) return { x: centerTX, z: centerTZ };
+  for (let r = 1; r <= 4; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.abs(dx) === r || Math.abs(dz) === r) {
+          if (isPassable(centerTX + dx, centerTZ + dz)) {
+            return { x: centerTX + dx, z: centerTZ + dz };
+          }
+        }
+      }
+    }
+  }
+  return { x: centerTX, z: centerTZ };
+}
+
+// 第5轮新增：A*寻路
+function aStarPath(startTX, startTZ, goalTX, goalTZ) {
+  if (startTX === goalTX && startTZ === goalTZ) return [];
+  const key = (x, z) => (x << 8) | z;
+  const open = [{ x: startTX, z: startTZ, g: 0, f: 0 }];
+  const closed = new Set();
+  const cameFrom = new Map();
+  const gScore = new Map();
+  const startKey = key(startTX, startTZ);
+  gScore.set(startKey, 0);
+  open[0].f = Math.abs(goalTX - startTX) + Math.abs(goalTZ - startTZ);
+  let iter = 0;
+  while (open.length > 0 && iter < 1200) {
+    iter++;
+    let best = 0;
+    for (let i = 1; i < open.length; i++) {
+      if (open[i].f < open[best].f) best = i;
+    }
+    const cur = open.splice(best, 1)[0];
+    if (cur.x === goalTX && cur.z === goalTZ) {
+      const path = [];
+      let k = key(cur.x, cur.z);
+      while (cameFrom.has(k)) {
+        const p = cameFrom.get(k);
+        path.unshift({ x: p.x, z: p.z });
+        k = key(p.x, p.z);
+      }
+      path.push({ x: cur.x, z: cur.z });
+      return path;
+    }
+    closed.add(key(cur.x, cur.z));
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dz === 0) continue;
+        const nx = cur.x + dx, nz = cur.z + dz;
+        const nk = key(nx, nz);
+        if (closed.has(nk)) continue;
+        if (nx !== goalTX || nz !== goalTZ) {
+          if (!isPassable(nx, nz)) continue;
+        }
+        const cost = (dx !== 0 && dz !== 0) ? 1.414 : 1.0;
+        const ng = cur.g + cost;
+        const prev = gScore.get(nk);
+        if (prev !== undefined && ng >= prev) continue;
+        gScore.set(nk, ng);
+        cameFrom.set(nk, { x: cur.x, z: cur.z });
+        const h = Math.abs(goalTX - nx) + Math.abs(goalTZ - nz);
+        open.push({ x: nx, z: nz, g: ng, f: ng + h });
+      }
+    }
+  }
+  return null;
+}
+
+// ===== 第5轮新增：建造放置 =====
+function enterBuildMode(type) {
+  buildModeType = type;
+  document.getElementById('build-mode-indicator').style.display = 'block';
+}
+
+function exitBuildMode() {
+  buildModeType = null;
+  document.getElementById('build-mode-indicator').style.display = 'none';
+  document.getElementById('build-ghost').style.display = 'none';
+}
+
+function canPlaceBuilding(tx, tz) {
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (!isPassable(tx + dx, tz + dz)) return false;
+    }
+  }
+  return true;
+}
+
+function placeBuilding(type, tx, tz, team) {
+  const b = new Building(type, tx, tz, team);
+  b.constructing = true;
+  b.constructTimer = 5.0;
+  buildings.push(b);
+  addBattleLog(`${team===0?'我方':'蓝方'}开始建造${b.name} (5s)`, 'production');
+  return b;
+}
+
+window.startBuild = function(type) {
+  const costs = { barracks: 1000, power: 500, tower: 800 };
+  if (playerMoney < costs[type]) return;
+  enterBuildMode(type);
+};
+
+// ===== 右键移动反馈标记 =====
+const moveMarkers = [];
+function createMoveMarker(x, z) {
+  const ringGeo = new THREE.RingGeometry(1.2, 1.6, 24);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x00ff00, side: THREE.DoubleSide, transparent: true, opacity: 0.8
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, 0.2, z);
+  scene.add(ring);
+  moveMarkers.push({ mesh: ring, life: 1.0 });
+}
+
+function updateMoveMarkers(dt) {
+  for (let i = moveMarkers.length - 1; i >= 0; i--) {
+    const m = moveMarkers[i];
+    m.life -= dt * 1.5;
+    m.mesh.material.opacity = Math.max(0, m.life * 0.8);
+    m.mesh.scale.setScalar(1 + (1 - m.life) * 0.5);
+    if (m.life <= 0) {
+      scene.remove(m.mesh);
+      m.mesh.geometry.dispose();
+      m.mesh.material.dispose();
+      moveMarkers.splice(i, 1);
+    }
+  }
+}
+
+// ===== 攻击特效 =====
+const projectiles = [];
+function createProjectile(fromPos, toPos, team) {
+  const color = team === 0 ? 0xff4400 : 0x4488ff;
+  const geo = new THREE.SphereGeometry(0.2, 6, 6);
+  const mat = new THREE.MeshBasicMaterial({ color });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(fromPos);
+  mesh.position.y = 1.5;
+  scene.add(mesh);
+  projectiles.push({
+    mesh,
+    target: toPos.clone(),
+    speed: 1.5,
+    life: 2.0
+  });
+}
+
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    const dir = new THREE.Vector3().subVectors(p.target, p.mesh.position);
+    dir.y = 0;
+    const dist = dir.length();
+    if (dist < 0.5) {
+      createExplosion(p.mesh.position.clone());
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      projectiles.splice(i, 1);
+      continue;
+    }
+    dir.normalize().multiplyScalar(p.speed);
+    p.mesh.position.add(dir);
+    p.life -= dt;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+const explosions = [];
+function createExplosion(pos) {
+  const geo = new THREE.SphereGeometry(0.5, 8, 8);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 1.0 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(pos);
+  mesh.position.y = 0.5;
+  scene.add(mesh);
+  explosions.push({ mesh, life: 0.4 });
+}
+
+function updateExplosions(dt) {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const e = explosions[i];
+    e.life -= dt;
+    e.mesh.material.opacity = Math.max(0, e.life / 0.4);
+    e.mesh.scale.setScalar(1 + (0.4 - e.life) * 3);
+    if (e.life <= 0) {
+      scene.remove(e.mesh);
+      e.mesh.geometry.dispose();
+      e.mesh.material.dispose();
+      explosions.splice(i, 1);
+    }
+  }
+}
+
+// ===== 建筑类 =====
+class Building {
+  constructor(type, tileX, tileZ, team) {
+    this.type = type;
+    this.tileX = tileX;
+    this.tileZ = tileZ;
+    this.team = team;
+    this.hp = 1000;
+    this.maxHp = 1000;
+    this.group = new THREE.Group();
+    this.selected = false;
+    this.alive = true;
+    this.constructing = false;
+    this.constructTimer = 0;
+    // 第3轮新增：生产状态
+    this.producing = null;
+    this.produceTimer = 0;
+    this.produceDuration = 5.0;
+    this.build(type, team);
+    this.placeOnMap();
+  }
+
+  build(type, team) {
+    const tc = team === 0 ? 0xcc2222 : 0x2222cc;
+    const tc2 = team === 0 ? 0x881111 : 0x111188;
+    const gray = 0x555555;
+
+    switch(type) {
+      case 'hq': {
+        this.hp = this.maxHp = 2000;
+        this.name = '指挥中心';
+        const base = createVoxelBlock(6, 3, 6, gray);
+        base.position.y = 1.5;
+        this.group.add(base);
+        const top = createVoxelBlock(4, 2, 4, tc);
+        top.position.y = 4;
+        this.group.add(top);
+        const ant = createVoxelBlock(0.3, 4, 0.3, 0xaaaaaa);
+        ant.position.set(1.5, 7, 1.5);
+        this.group.add(ant);
+        break;
+      }
+      case 'power': {
+        this.hp = this.maxHp = 800;
+        this.name = '发电厂';
+        const body = createVoxelBlock(5, 4, 4, gray);
+        body.position.y = 2;
+        this.group.add(body);
+        const chimney = createVoxelBlock(1, 5, 1, 0x333333);
+        chimney.position.set(1.5, 4.5, 0);
+        this.group.add(chimney);
+        const mark = createVoxelBlock(2, 1, 2, tc);
+        mark.position.y = 4.5;
+        this.group.add(mark);
+        break;
+      }
+      case 'barracks': {
+        this.hp = this.maxHp = 1000;
+        this.name = '兵营';
+        const walls = createVoxelBlock(5, 3, 5, tc2);
+        walls.position.y = 1.5;
+        this.group.add(walls);
+        const roof = createVoxelBlock(5.5, 0.5, 5.5, tc);
+        roof.position.y = 3.25;
+        this.group.add(roof);
+        const door = createVoxelBlock(1.5, 2, 0.3, 0x332200);
+        door.position.set(0, 1, 2.7);
+        this.group.add(door);
+        break;
+      }
+      case 'tower': {
+        this.hp = this.maxHp = 600;
+        this.name = '防御塔';
+        this.attackRange = 10;
+        this.attackDamage = 15;
+        this.attackCooldown = 1.0;
+        this.attackTimer = 0;
+        const base = createVoxelBlock(3, 1, 3, gray);
+        base.position.y = 0.5;
+        this.group.add(base);
+        const pillar = createVoxelBlock(1.5, 6, 1.5, 0x666666);
+        pillar.position.y = 4;
+        this.group.add(pillar);
+        const gunBase = createVoxelBlock(2, 0.8, 2, tc2);
+        gunBase.position.y = 7.5;
+        this.group.add(gunBase);
+        const gun = createVoxelBlock(0.4, 0.4, 2.5, 0x333333);
+        gun.position.set(0, 7.5, 1.5);
+        this.group.add(gun);
+        const light = createVoxelBlock(0.4, 0.4, 0.4, 0xffaa00);
+        light.position.set(0, 8.3, 0);
+        this.group.add(light);
+        break;
+      }
+    }
+
+    const ringGeo = new THREE.RingGeometry(4, 4.5, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+    this.selectRing = new THREE.Mesh(ringGeo, ringMat);
+    this.selectRing.rotation.x = -Math.PI / 2;
+    this.selectRing.position.y = 0.3;
+    this.group.add(this.selectRing);
+
+    const hpBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(5, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0x330000, side: THREE.DoubleSide })
+    );
+    hpBg.position.y = 8;
+    this.hpBg = hpBg;
+    this.group.add(hpBg);
+
+    const hpBar = new THREE.Mesh(
+      new THREE.PlaneGeometry(5, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+    );
+    hpBar.position.y = 8;
+    hpBar.position.z = 0.01;
+    this.hpBar = hpBar;
+    this.group.add(hpBar);
+  }
+
+  placeOnMap() {
+    const wx = (this.tileX - MAP_SIZE/2) * TILE_SIZE;
+    const wz = (this.tileZ - MAP_SIZE/2) * TILE_SIZE;
+    this.group.position.set(wx, 0, wz);
+    scene.add(this.group);
+  }
+
+  setSelected(sel) {
+    this.selected = sel;
+    this.selectRing.material.opacity = sel ? 0.7 : 0;
+  }
+
+  takeDamage(dmg, attackerName) {
+    this.hp -= dmg;
+    if (this.hp <= 0 && this.alive) {
+      this.hp = 0;
+      this.alive = false;
+      this.destroy();
+      addBattleLog(`${this.name}(${this.team===0?'红':'蓝'}) 被 ${attackerName} 摧毁!`, 'kill');
+    }
+  }
+
+  destroy() {
+    this.group.traverse(child => {
+      if (child.isMesh && child !== this.selectRing && child !== this.hpBg && child !== this.hpBar) {
+        child.material = new THREE.MeshLambertMaterial({ color: 0x333333 });
+      }
+    });
+    createExplosion(this.group.position.clone());
+    setTimeout(() => {
+      scene.remove(this.group);
+    }, 3000);
+  }
+
+  // 第3轮新增：生产单位
+  startProduction(unitType) {
+    if (this.producing) return false;
+    const costs = { infantry: 300, tank: 800 };
+    const cost = costs[unitType];
+    if (playerMoney < cost) return false;
+    playerMoney -= cost;
+    this.producing = unitType;
+    this.produceTimer = this.produceDuration;
+    addBattleLog(`${this.name} 开始生产 ${unitType === 'tank' ? '坦克' : '步兵'} (-$${cost})`, 'production');
+    return true;
+  }
+
+  updateProduction(dt) {
+    if (!this.producing || !this.alive) return;
+    // 第6轮新增：电力不足时生产速度减半
+    let speedMul = 1.0;
+    if (this.type === 'barracks') {
+      const p = computePower(this.team);
+      if (p.cap < p.used) speedMul = 0.5;
+    }
+    this.produceTimer -= dt * speedMul;
+    if (this.produceTimer <= 0) {
+      const spawnPos = findSpawnPos(this.tileX + 4, this.tileZ);
+      const u = new Unit(this.producing, spawnPos.x, spawnPos.z, this.team);
+      units.push(u);
+      const lowPow = speedMul < 1.0;
+      addBattleLog(`${this.name} 生产完成: ${this.producing === 'tank' ? '坦克' : '步兵'}${lowPow ? ' (低电力减速)' : ''}`, 'production');
+      this.producing = null;
+      this.produceTimer = 0;
+      updateInfoPanel();
+    }
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+    this.hpBg.lookAt(camera.position);
+    this.hpBar.lookAt(camera.position);
+    const hpRatio = this.hp / this.maxHp;
+    this.hpBar.scale.x = Math.max(0, hpRatio);
+    this.hpBar.material.color.setHex(hpRatio > 0.5 ? 0x00ff00 : hpRatio > 0.25 ? 0xffaa00 : 0xff0000);
+
+    if (this.constructing) {
+      this.constructTimer -= dt;
+      this.group.traverse(child => {
+        if (child.isMesh && child !== this.selectRing && child !== this.hpBg && child !== this.hpBar) {
+          child.material.transparent = true;
+          child.material.opacity = 0.4;
+        }
+      });
+      if (this.constructTimer <= 0) {
+        this.constructing = false;
+        this.group.traverse(child => {
+          if (child.isMesh && child !== this.selectRing && child !== this.hpBg && child !== this.hpBar) {
+            child.material.transparent = false;
+            child.material.opacity = 1.0;
+          }
+        });
+        addBattleLog(`${this.name}(${this.team===0?'红':'蓝'}) 建造完成!`, 'production');
+      }
+      return;
+    }
+
+    // 第6轮新增：防御塔自动攻击
+    if (this.type === 'tower' && this.attackCooldown !== undefined) {
+      this.attackTimer = Math.max(0, this.attackTimer - dt);
+      if (this.attackTimer <= 0) {
+        let nearest = null;
+        let nearestDist = Infinity;
+        const tcx = (this.tileX - MAP_SIZE/2) * TILE_SIZE;
+        const tcz = (this.tileZ - MAP_SIZE/2) * TILE_SIZE;
+        for (const u of units) {
+          if (!u.alive || u.team === this.team || u.type === 'harvester') continue;
+          const dx = u.group.position.x - tcx;
+          const dz = u.group.position.z - tcz;
+          const d = Math.sqrt(dx*dx + dz*dz);
+          if (d <= this.attackRange * TILE_SIZE && d < nearestDist) {
+            nearestDist = d;
+            nearest = u;
+          }
+        }
+        if (nearest) {
+          nearest.takeDamage(this.attackDamage, this.name);
+          createProjectile(this.group.position.clone().add(new THREE.Vector3(0, 7.5, 0)), nearest.group.position.clone(), this.team);
+          this.attackTimer = this.attackCooldown;
+        }
+      }
+    }
+
+    this.updateProduction(dt);
+  }
+}
+
+// ===== 单位类 =====
+class Unit {
+  constructor(type, tileX, tileZ, team) {
+    this.type = type;
+    this.tileX = tileX;
+    this.tileZ = tileZ;
+    this.team = team;
+    this.hp = 100;
+    this.maxHp = 100;
+    this.speed = 0.05;
+    this.group = new THREE.Group();
+    this.selected = false;
+    this.targetPos = null;
+    this.name = '';
+    this.alive = true;
+
+    this.attackRange = 8;
+    this.attackDamage = 10;
+    this.attackCooldown = 0;
+    this.attackInterval = 1.0;
+    this.currentTarget = null;
+
+    this.aiTimer = 0;
+    this.aiInterval = 2.0 + Math.random() * 2;
+
+    // 第3轮新增：采矿状态
+    this.oreCarried = 0;
+    this.oreCapacity = 400;
+    this.miningState = 'idle'; // idle, going_to_mine, mining, returning
+    this.miningTimer = 0;
+    this.miningDuration = 3.0;
+
+    this.path = null;
+    this.pathIndex = 0;
+    this.stuckFrames = 0;
+
+    this.build(type, team);
+    this.placeOnMap();
+  }
+
+  build(type, team) {
+    const tc = team === 0 ? 0xcc2222 : 0x2222cc;
+    const tc2 = team === 0 ? 0x993333 : 0x333399;
+
+    switch(type) {
+      case 'tank': {
+        this.hp = this.maxHp = 200;
+        this.name = '坦克';
+        this.speed = 0.04;
+        this.attackRange = 12;
+        this.attackDamage = 25;
+        this.attackInterval = 1.5;
+        const body = createVoxelBlock(2.5, 1, 3.5, tc2);
+        body.position.y = 0.8;
+        this.group.add(body);
+        const turret = createVoxelBlock(1.5, 0.8, 1.5, tc);
+        turret.position.y = 1.7;
+        this.group.add(turret);
+        const barrel = createVoxelBlock(0.3, 0.3, 2.5, 0x444444);
+        barrel.position.set(0, 1.7, 1.8);
+        this.group.add(barrel);
+        for (let side of [-1, 1]) {
+          const track = createVoxelBlock(0.5, 0.6, 3.8, 0x222222);
+          track.position.set(side * 1.3, 0.3, 0);
+          this.group.add(track);
+        }
+        break;
+      }
+      case 'infantry': {
+        this.hp = this.maxHp = 80;
+        this.name = '步兵';
+        this.speed = 0.03;
+        this.attackRange = 6;
+        this.attackDamage = 8;
+        this.attackInterval = 0.8;
+        const torso = createVoxelBlock(0.8, 1.2, 0.5, tc);
+        torso.position.y = 1.2;
+        this.group.add(torso);
+        const head = createVoxelBlock(0.5, 0.5, 0.5, 0xddbb88);
+        head.position.y = 2.1;
+        this.group.add(head);
+        for (let side of [-0.25, 0.25]) {
+          const leg = createVoxelBlock(0.3, 0.8, 0.3, 0x333333);
+          leg.position.set(side, 0.4, 0);
+          this.group.add(leg);
+        }
+        const gun = createVoxelBlock(0.15, 0.15, 1.0, 0x444444);
+        gun.position.set(0.5, 1.3, 0.4);
+        this.group.add(gun);
+        break;
+      }
+      case 'harvester': {
+        this.hp = this.maxHp = 300;
+        this.name = '矿车';
+        this.speed = 0.025;
+        this.attackRange = 0;
+        this.attackDamage = 0;
+        const hbody = createVoxelBlock(3, 1.5, 4, 0xddaa00);
+        hbody.position.y = 1;
+        this.group.add(hbody);
+        const bucket = createVoxelBlock(2.5, 1, 2, 0x886600);
+        bucket.position.set(0, 2, -0.5);
+        this.group.add(bucket);
+        for (let sx of [-1.3, 1.3]) {
+          for (let sz of [-1.5, 1.5]) {
+            const wheel = createVoxelBlock(0.6, 0.6, 0.6, 0x222222);
+            wheel.position.set(sx, 0.3, sz);
+            this.group.add(wheel);
+          }
+        }
+        break;
+      }
+    }
+
+    const ringGeo = new THREE.RingGeometry(1.8, 2.2, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide, transparent: true, opacity: 0 });
+    this.selectRing = new THREE.Mesh(ringGeo, ringMat);
+    this.selectRing.rotation.x = -Math.PI / 2;
+    this.selectRing.position.y = 0.1;
+    this.group.add(this.selectRing);
+
+    const hpBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 0.2),
+      new THREE.MeshBasicMaterial({ color: 0x330000, side: THREE.DoubleSide })
+    );
+    hpBg.position.y = 3;
+    this.hpBg = hpBg;
+    this.group.add(hpBg);
+
+    const hpBar = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 0.2),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+    );
+    hpBar.position.y = 3;
+    hpBar.position.z = 0.01;
+    this.hpBar = hpBar;
+    this.group.add(hpBar);
+  }
+
+  placeOnMap() {
+    const wx = (this.tileX - MAP_SIZE/2) * TILE_SIZE;
+    const wz = (this.tileZ - MAP_SIZE/2) * TILE_SIZE;
+    this.group.position.set(wx, 0, wz);
+    scene.add(this.group);
+  }
+
+  setSelected(sel) {
+    this.selected = sel;
+    this.selectRing.material.opacity = sel ? 0.7 : 0;
+  }
+
+  moveTo(tx, tz) {
+    this.currentTarget = null;
+    this.miningState = 'idle';
+    const myTile = worldToTile(this.group.position.x, this.group.position.z);
+    const path = aStarPath(myTile.x, myTile.z, tx, tz);
+    if (path && path.length > 0) {
+      this.path = path;
+      this.pathIndex = 0;
+      this.stuckFrames = 0;
+    } else {
+      this.path = null;
+      this.targetPos = {
+        x: (tx - MAP_SIZE/2) * TILE_SIZE,
+        z: (tz - MAP_SIZE/2) * TILE_SIZE
+      };
+    }
+  }
+
+  // 第3轮新增：前往采矿
+  goToMine(tileX, tileZ) {
+    if (this.type !== 'harvester') return;
+    this.miningState = 'going_to_mine';
+    this.mineTileX = tileX;
+    this.mineTileZ = tileZ;
+    this.currentTarget = null;
+    const myTile = worldToTile(this.group.position.x, this.group.position.z);
+    const path = aStarPath(myTile.x, myTile.z, tileX, tileZ);
+    if (path && path.length > 0) {
+      this.path = path;
+      this.pathIndex = 0;
+      this.stuckFrames = 0;
+    } else {
+      this.targetPos = {
+        x: (tileX - MAP_SIZE/2) * TILE_SIZE,
+        z: (tileZ - MAP_SIZE/2) * TILE_SIZE
+      };
+    }
+  }
+
+  attackTarget(target) {
+    this.currentTarget = target;
+    this.targetPos = null;
+    this.path = null;
+    this.miningState = 'idle';
+  }
+
+  takeDamage(dmg, attackerName) {
+    this.hp -= dmg;
+    if (this.hp <= 0 && this.alive) {
+      this.hp = 0;
+      this.alive = false;
+      this.destroy();
+      addBattleLog(`${this.name}(${this.team===0?'红':'蓝'}) 被 ${attackerName} 击毁!`, 'kill');
+    }
+  }
+
+  destroy() {
+    createExplosion(this.group.position.clone());
+    scene.remove(this.group);
+  }
+
+  distTo(other) {
+    const dx = this.group.position.x - other.group.position.x;
+    const dz = this.group.position.z - other.group.position.z;
+    return Math.sqrt(dx*dx + dz*dz);
+  }
+
+  updateCombat(dt) {
+    if (!this.alive || this.attackDamage <= 0) return;
+
+    this.attackCooldown -= dt;
+
+    let nearestEnemy = null;
+    let nearestDist = Infinity;
+
+    units.forEach(u => {
+      if (u.team !== this.team && u.alive) {
+        const d = this.distTo(u);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestEnemy = u;
+        }
+      }
+    });
+
+    buildings.forEach(b => {
+      if (b.team !== this.team && b.alive) {
+        const d = this.distTo(b);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestEnemy = b;
+        }
+      }
+    });
+
+    if (this.currentTarget && this.currentTarget.alive) {
+      const d = this.distTo(this.currentTarget);
+      if (d <= this.attackRange) {
+        if (this.attackCooldown <= 0) {
+          this.fireAt(this.currentTarget);
+        }
+        return;
+      } else if (!this.path || this.stuckFrames > 30) {
+        const tTile = worldToTile(this.currentTarget.group.position.x, this.currentTarget.group.position.z);
+        this.moveTo(tTile.x, tTile.z);
+      }
+    }
+
+    if (nearestEnemy && nearestDist <= this.attackRange) {
+      this.currentTarget = nearestEnemy;
+      this.targetPos = null;
+      if (this.attackCooldown <= 0) {
+        this.fireAt(nearestEnemy);
+      }
+      const dx = nearestEnemy.group.position.x - this.group.position.x;
+      const dz = nearestEnemy.group.position.z - this.group.position.z;
+      this.group.rotation.y = Math.atan2(dx, dz);
+    }
+  }
+
+  fireAt(target) {
+    this.attackCooldown = this.attackInterval;
+    createProjectile(this.group.position, target.group.position, this.team);
+    target.takeDamage(this.attackDamage, this.name);
+    addBattleLog(
+      `${this.name}(${this.team===0?'红':'蓝'}) -> ${target.name}(${target.team===0?'红':'蓝'}) -${this.attackDamage}HP`,
+      'damage'
+    );
+  }
+
+  updateAI(dt) {
+    if (this.team !== 1 || !this.alive) return;
+
+    // 第4轮新增：蓝方矿车自动采矿AI
+    if (this.type === 'harvester') {
+      this.updateHarvesterAI(dt);
+      return;
+    }
+
+    if (this.attackDamage <= 0) return;
+
+    this.aiTimer -= dt;
+    if (this.aiTimer > 0 && this.currentTarget && this.currentTarget.alive) return;
+
+    this.aiTimer = this.aiInterval;
+
+    let nearestTarget = null;
+    let nearestDist = Infinity;
+
+    units.forEach(u => {
+      if (u.team === 0 && u.alive) {
+        const d = this.distTo(u);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestTarget = u;
+        }
+      }
+    });
+
+    buildings.forEach(b => {
+      if (b.team === 0 && b.alive) {
+        const d = this.distTo(b);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearestTarget = b;
+        }
+      }
+    });
+
+    if (nearestTarget) {
+      if (nearestDist <= this.attackRange) {
+        this.attackTarget(nearestTarget);
+      } else {
+        this.currentTarget = nearestTarget;
+        this.moveTo(
+          Math.round(nearestTarget.group.position.x / TILE_SIZE + MAP_SIZE/2),
+          Math.round(nearestTarget.group.position.z / TILE_SIZE + MAP_SIZE/2)
+        );
+      }
+    }
+  }
+
+  // 第4轮新增：蓝方矿车自动采矿AI
+  updateHarvesterAI(dt) {
+    if (this.miningState !== 'idle') return;
+    if (this.oreCarried >= this.oreCapacity) {
+      // 满载，返回指挥中心
+      const hq = buildings.find(b => b.type === 'hq' && b.team === 1 && b.alive);
+      if (hq) {
+        this.miningState = 'returning';
+        this.targetPos = {
+          x: (hq.tileX - MAP_SIZE/2) * TILE_SIZE,
+          z: (hq.tileZ - MAP_SIZE/2) * TILE_SIZE
+        };
+      }
+      return;
+    }
+    // 寻找最近的矿区
+    const myTile = worldToTile(this.group.position.x, this.group.position.z);
+    let bestDist = Infinity;
+    let bestTX = -1, bestTZ = -1;
+    for (let x = 0; x < MAP_SIZE; x++) {
+      for (let z = 0; z < MAP_SIZE; z++) {
+        if (terrain[x][z] === TERRAIN.ORE) {
+          const d = Math.abs(x - myTile.x) + Math.abs(z - myTile.z);
+          if (d < bestDist) {
+            bestDist = d;
+            bestTX = x;
+            bestTZ = z;
+          }
+        }
+      }
+    }
+    if (bestTX >= 0) {
+      this.goToMine(bestTX, bestTZ);
+    }
+  }
+
+  // 第3轮新增：采矿逻辑
+  updateMining(dt) {
+    if (this.type !== 'harvester' || !this.alive) return;
+
+    if (this.miningState === 'going_to_mine') {
+      const tile = worldToTile(this.group.position.x, this.group.position.z);
+      const dx = tile.x - this.mineTileX;
+      const dz = tile.z - this.mineTileZ;
+      if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
+        this.miningState = 'mining';
+        this.miningTimer = this.miningDuration;
+        this.targetPos = null;
+      }
+    }
+
+    if (this.miningState === 'mining') {
+      this.miningTimer -= dt;
+      if (this.miningTimer <= 0) {
+        const tile = worldToTile(this.group.position.x, this.group.position.z);
+        if (tile.x >= 0 && tile.x < MAP_SIZE && tile.z >= 0 && tile.z < MAP_SIZE &&
+            terrain[tile.x][tile.z] === TERRAIN.ORE) {
+          this.oreCarried = this.oreCapacity;
+          addBattleLog(`矿车采满矿石 (${this.oreCarried})，返回指挥中心`, 'economy');
+          // 第4轮新增：矿区消耗 - 30%概率变为草地
+          if (Math.random() < 0.3) {
+            updateTerrainTile(tile.x, tile.z, TERRAIN.GRASS);
+            addBattleLog(`矿区 (${tile.x},${tile.z}) 已枯竭`, 'economy');
+          }
+        } else {
+          addBattleLog(`矿区已枯竭，矿车空闲`, 'economy');
+        }
+        this.miningState = 'returning';
+        const hq = buildings.find(b => b.type === 'hq' && b.team === this.team && b.alive);
+        if (hq) {
+          this.targetPos = {
+            x: (hq.tileX - MAP_SIZE/2) * TILE_SIZE,
+            z: (hq.tileZ - MAP_SIZE/2) * TILE_SIZE
+          };
+        } else {
+          this.miningState = 'idle';
+        }
+      }
+    }
+
+    if (this.miningState === 'returning') {
+      const hq = buildings.find(b => b.type === 'hq' && b.team === this.team && b.alive);
+      if (!hq) { this.miningState = 'idle'; return; }
+      const tile = worldToTile(this.group.position.x, this.group.position.z);
+      const dx = tile.x - hq.tileX;
+      const dz = tile.z - hq.tileZ;
+      if (Math.abs(dx) <= 3 && Math.abs(dz) <= 3) {
+        if (this.team === 0) {
+          const income = Math.floor(this.oreCarried * 0.5);
+          playerMoney += income;
+          playerOre += this.oreCarried;
+          addBattleLog(`矿车交付矿石 +$${income} (总矿: ${playerOre})`, 'economy');
+        } else {
+          const income = Math.floor(this.oreCarried * 0.5);
+          blueMoney += income;
+          addBattleLog(`蓝方矿车交付矿石 +$${income}`, 'economy');
+        }
+        this.oreCarried = 0;
+        this.miningState = 'idle';
+        this.targetPos = null;
+        updateInfoPanel();
+      }
+    }
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+
+    this.updateCombat(dt);
+    this.updateAI(dt);
+    this.updateMining(dt);
+
+    // 第5轮新增：A*路径跟随移动
+    if (this.path && this.pathIndex < this.path.length) {
+      const wp = this.path[this.pathIndex];
+      const wpX = (wp.x - MAP_SIZE/2) * TILE_SIZE;
+      const wpZ = (wp.z - MAP_SIZE/2) * TILE_SIZE;
+      const dx = wpX - this.group.position.x;
+      const dz = wpZ - this.group.position.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+
+      if (dist < 0.5) {
+        this.pathIndex++;
+        if (this.pathIndex >= this.path.length) {
+          this.path = null;
+        }
+      } else {
+        const prevX = this.group.position.x;
+        const prevZ = this.group.position.z;
+        const angle = Math.atan2(dx, dz);
+        const moveX = Math.sin(angle) * this.speed * TILE_SIZE;
+        const moveZ = Math.cos(angle) * this.speed * TILE_SIZE;
+
+        // 单位碰撞避让
+        const myPos = this.group.position;
+        const minDist = 2.5;
+        units.forEach(other => {
+          if (other === this || !other.alive) return;
+          const ox = other.group.position.x - myPos.x;
+          const oz = other.group.position.z - myPos.z;
+          const od = Math.sqrt(ox*ox + oz*oz);
+          if (od < minDist && od > 0.01) {
+            const push = (minDist - od) * 0.3;
+            this.group.position.x -= (ox / od) * push;
+            this.group.position.z -= (oz / od) * push;
+          }
+        });
+
+        this.group.rotation.y = angle;
+        this.group.position.x += moveX;
+        this.group.position.z += moveZ;
+
+        const moved = Math.abs(this.group.position.x - prevX) + Math.abs(this.group.position.z - prevZ);
+        if (moved < 0.01) {
+          this.stuckFrames++;
+          if (this.stuckFrames > 60) {
+            this.path = null;
+            this.stuckFrames = 0;
+          }
+        } else {
+          this.stuckFrames = 0;
+        }
+      }
+    } else if (this.targetPos) {
+      const dx = this.targetPos.x - this.group.position.x;
+      const dz = this.targetPos.z - this.group.position.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < 0.3) {
+        this.targetPos = null;
+      } else {
+        const angle = Math.atan2(dx, dz);
+        let moveX = Math.sin(angle) * this.speed * TILE_SIZE;
+        let moveZ = Math.cos(angle) * this.speed * TILE_SIZE;
+        const afterTile = worldToTile(this.group.position.x + moveX, this.group.position.z + moveZ);
+        if (isPassable(afterTile.x, afterTile.z)) {
+          this.group.rotation.y = angle;
+          this.group.position.x += moveX;
+          this.group.position.z += moveZ;
+        } else {
+          this.targetPos = null;
+        }
+      }
+    }
+
+    this.hpBg.lookAt(camera.position);
+    this.hpBar.lookAt(camera.position);
+    const hpRatio = this.hp / this.maxHp;
+    this.hpBar.scale.x = Math.max(0, hpRatio);
+    this.hpBar.material.color.setHex(hpRatio > 0.5 ? 0x00ff00 : hpRatio > 0.25 ? 0xffaa00 : 0xff0000);
+  }
+}
+
+// 第4轮新增：蓝方自动造兵AI
+function blueAutoBuild() {
+  if (gameOver) return;
+  // 第6轮新增：蓝方生产受电力影响
+  const blueBarracks = buildings.find(b => b.type === 'barracks' && b.team === 1 && b.alive && !b.producing);
+  if (!blueBarracks) return;
+  const lowPower = computePower(1).cap < computePower(1).used;
+  const durationMul = lowPower ? 2.0 : 1.0;
+  if (blueMoney >= 800) {
+    blueMoney -= 800;
+    blueBarracks.producing = 'tank';
+    blueBarracks.produceTimer = blueBarracks.produceDuration * durationMul;
+    addBattleLog(`蓝方兵营开始生产坦克${lowPower ? ' (电力不足减速)' : ''}`, 'production');
+  } else if (blueMoney >= 300) {
+    blueMoney -= 300;
+    blueBarracks.producing = 'infantry';
+    blueBarracks.produceTimer = blueBarracks.produceDuration * durationMul;
+    addBattleLog(`蓝方兵营开始生产步兵${lowPower ? ' (电力不足减速)' : ''}`, 'production');
+  }
+}
+
+// 第6轮新增：电力系统
+// 电力供给：每座发电厂 +50
+// 电力消耗：指挥中心 -20，兵营 -10，防御塔 -5
+function computePower(team) {
+  let cap = 0, used = 0;
+  for (const b of buildings) {
+    if (!b.alive || b.team !== team || b.constructing) continue;
+    if (b.type === 'power') cap += 50;
+    else if (b.type === 'hq') used += 20;
+    else if (b.type === 'barracks') used += 10;
+    else if (b.type === 'tower') used += 5;
+  }
+  return { cap, used };
+}
+
+// 第6轮新增：蓝方自动建造AI
+// 每30秒检查：若金钱>=1000且蓝方兵营数量<2，在指挥中心附近自动建造兵营
+// 若金钱>=500且电力供给不足需求，自动建造发电厂
+function blueAutoConstruct() {
+  if (gameOver) return;
+  const blueHq = buildings.find(b => b.type === 'hq' && b.team === 1 && b.alive);
+  if (!blueHq) return;
+  const p = computePower(1);
+  const barracksCount = buildings.filter(b => b.type === 'barracks' && b.team === 1 && b.alive).length;
+
+  // 优先补兵营
+  if (barracksCount < 2 && blueMoney >= 1000) {
+    const pos = findBuildSpotNear(blueHq.tileX, blueHq.tileZ, 1);
+    if (pos) {
+      blueMoney -= 1000;
+      placeBuilding('barracks', pos.x, pos.z, 1);
+      return;
+    }
+  }
+
+  // 电力不足时建造发电厂
+  if (p.cap < p.used && blueMoney >= 500) {
+    const pos = findBuildSpotNear(blueHq.tileX, blueHq.tileZ, 1);
+    if (pos) {
+      blueMoney -= 500;
+      placeBuilding('power', pos.x, pos.z, 1);
+      return;
+    }
+  }
+}
+
+// 在指定中心附近寻找可放置建筑的位置（需5x5空地）
+function findBuildSpotNear(cx, cz, team) {
+  const dirs = [
+    [8,0],[-8,0],[0,8],[0,-8],
+    [8,8],[8,-8],[-8,8],[-8,-8],
+    [12,0],[-12,0],[0,12],[0,-12],
+    [12,12],[-12,-12]
+  ];
+  for (const [ox, oz] of dirs) {
+    const tx = cx + ox, tz = cz + oz;
+    if (tx < 3 || tx >= MAP_SIZE - 3 || tz < 3 || tz >= MAP_SIZE - 3) continue;
+    if (canPlaceBuilding(tx, tz)) return { x: tx, z: tz };
+  }
+  return null;
+}
+
+// 第4轮新增：蓝方兵营生产不扣玩家金钱
+const origStartProduction = Building.prototype.startProduction;
+Building.prototype.startProduction = function(unitType) {
+  if (this.team === 1) return false;
+  return origStartProduction.call(this, unitType);
+};
+
+// 第5轮新增：蓝方进攻AI
+function blueAttackAI() {
+  if (gameOver) return;
+  const blueCombatUnits = units.filter(u => u.team === 1 && u.alive && u.type !== 'harvester');
+  if (blueCombatUnits.length < 4) return;
+
+  let nearestBuilding = null;
+  let nearestDist = Infinity;
+  buildings.forEach(b => {
+    if (b.team === 0 && b.alive) {
+      const cx = (b.tileX - MAP_SIZE/2) * TILE_SIZE;
+      const cz = (b.tileZ - MAP_SIZE/2) * TILE_SIZE;
+      const d = blueCombatUnits.reduce((sum, u) => {
+        const dx = u.group.position.x - cx;
+        const dz = u.group.position.z - cz;
+        return sum + Math.sqrt(dx*dx + dz*dz);
+      }, 0) / blueCombatUnits.length;
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestBuilding = b;
+      }
+    }
+  });
+
+  if (nearestBuilding) {
+    blueCombatUnits.forEach(u => {
+      if (!u.currentTarget || !u.currentTarget.alive) {
+        u.currentTarget = nearestBuilding;
+        u.moveTo(nearestBuilding.tileX, nearestBuilding.tileZ);
+      }
+    });
+    addBattleLog(`蓝方发起进攻! ${blueCombatUnits.length}个单位出击`, 'kill');
+  }
+}
+
+// ===== 游戏实体 =====
+const buildings = [];
+const units = [];
+const selectedEntities = [];
+
+buildings.push(new Building('hq', 10, 10, 0));
+buildings.push(new Building('power', 18, 10, 0));
+buildings.push(new Building('barracks', 10, 18, 0));
+
+units.push(new Unit('tank', 14, 14, 0));
+units.push(new Unit('tank', 16, 14, 0));
+units.push(new Unit('tank', 14, 16, 0));
+units.push(new Unit('infantry', 12, 12, 0));
+units.push(new Unit('infantry', 13, 12, 0));
+units.push(new Unit('infantry', 14, 12, 0));
+units.push(new Unit('harvester', 16, 16, 0));
+
+buildings.push(new Building('hq', 54, 54, 1));
+buildings.push(new Building('power', 50, 54, 1));
+buildings.push(new Building('barracks', 54, 50, 1));
+
+units.push(new Unit('tank', 50, 50, 1));
+units.push(new Unit('tank', 52, 50, 1));
+units.push(new Unit('tank', 50, 52, 1));
+units.push(new Unit('tank', 53, 51, 1)); // 第4轮新增：蓝方额外坦克
+units.push(new Unit('tank', 51, 53, 1)); // 第4轮新增：蓝方额外坦克
+units.push(new Unit('infantry', 52, 52, 1));
+units.push(new Unit('infantry', 53, 52, 1));
+units.push(new Unit('infantry', 51, 51, 1)); // 第4轮新增：蓝方额外步兵
+units.push(new Unit('infantry', 52, 51, 1)); // 第4轮新增：蓝方额外步兵
+units.push(new Unit('harvester', 52, 54, 1)); // 第4轮新增：蓝方矿车
+
+// ===== 摄像机控制 =====
+const camState = { panSpeed: 0.8, zoomSpeed: 2, keys: {} };
+document.addEventListener('keydown', e => {
+  camState.keys[e.key.toLowerCase()] = true;
+  if (e.key === 'Escape' && buildModeType) exitBuildMode();
+});
+document.addEventListener('keyup', e => camState.keys[e.key.toLowerCase()] = false);
+
+function updateCamera() {
+  const s = camState.panSpeed;
+  if (camState.keys['w'] || camState.keys['arrowup']) { camera.position.z -= s; camera.position.x -= s; }
+  if (camState.keys['s'] || camState.keys['arrowdown']) { camera.position.z += s; camera.position.x += s; }
+  if (camState.keys['a'] || camState.keys['arrowleft']) { camera.position.x -= s; camera.position.z += s; }
+  if (camState.keys['d'] || camState.keys['arrowright']) { camera.position.x += s; camera.position.z -= s; }
+  camera.updateProjectionMatrix();
+}
+
+renderer.domElement.addEventListener('wheel', e => {
+  const z = e.deltaY > 0 ? 1.1 : 0.9;
+  camera.left *= z; camera.right *= z;
+  camera.top *= z; camera.bottom *= z;
+  camera.updateProjectionMatrix();
+});
+
+// ===== 选择与交互 =====
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let dragStart = null;
+let isDragging = false;
+const selBox = document.getElementById('selection-box');
+
+function getAllMeshes() {
+  const meshes = [];
+  [...buildings, ...units].forEach(e => {
+    if (!e.alive) return;
+    e.group.traverse(child => {
+      if (child.isMesh && child !== e.selectRing && child !== e.hpBg && child !== e.hpBar) {
+        child.userData.entity = e;
+        meshes.push(child);
+      }
+    });
+  });
+  return meshes;
+}
+
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button === 0) {
+    dragStart = { x: e.clientX, y: e.clientY };
+    isDragging = false;
+  }
+});
+
+renderer.domElement.addEventListener('mousemove', e => {
+  if (dragStart) {
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      isDragging = true;
+      selBox.style.display = 'block';
+      selBox.style.left = Math.min(dragStart.x, e.clientX) + 'px';
+      selBox.style.top = Math.min(dragStart.y, e.clientY) + 'px';
+      selBox.style.width = Math.abs(dx) + 'px';
+      selBox.style.height = Math.abs(dy) + 'px';
+    }
+  }
+});
+
+renderer.domElement.addEventListener('mouseup', e => {
+  if (e.button === 0) {
+    selBox.style.display = 'none';
+
+    selectedEntities.forEach(ent => ent.setSelected(false));
+    selectedEntities.length = 0;
+
+    const meshes = getAllMeshes();
+
+    if (isDragging && dragStart) {
+      const x1 = Math.min(dragStart.x, e.clientX);
+      const y1 = Math.min(dragStart.y, e.clientY);
+      const x2 = Math.max(dragStart.x, e.clientX);
+      const y2 = Math.max(dragStart.y, e.clientY);
+
+      const allEntities = [...units, ...buildings].filter(ent => ent.team === 0 && ent.alive);
+      allEntities.forEach(ent => {
+        const pos = ent.group.position.clone();
+        pos.project(camera);
+        const sx = (pos.x + 1) / 2 * window.innerWidth;
+        const sy = (-pos.y + 1) / 2 * window.innerHeight;
+        if (sx >= x1 && sx <= x2 && sy >= y1 && sy <= y2) {
+          ent.setSelected(true);
+          selectedEntities.push(ent);
+        }
+      });
+    } else {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(meshes);
+      if (hits.length > 0) {
+        const ent = hits[0].object.userData.entity;
+        if (ent && ent.team === 0 && ent.alive) {
+          ent.setSelected(true);
+          selectedEntities.push(ent);
+        }
+      }
+    }
+
+    updateInfoPanel();
+    dragStart = null;
+    isDragging = false;
+  }
+});
+
+// 右键移动/攻击/采矿
+renderer.domElement.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (gameOver) return;
+
+  // 第5轮新增：建造模式放置建筑
+  if (buildModeType) {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const pt = new THREE.Vector3();
+    raycaster.ray.intersectPlane(groundPlane, pt);
+    if (pt) {
+      const tx = Math.round(pt.x / TILE_SIZE + MAP_SIZE/2);
+      const tz = Math.round(pt.z / TILE_SIZE + MAP_SIZE/2);
+      const costs = { barracks: 1000, power: 500, tower: 800 };
+      if (canPlaceBuilding(tx, tz) && playerMoney >= costs[buildModeType]) {
+        playerMoney -= costs[buildModeType];
+        placeBuilding(buildModeType, tx, tz, 0);
+        exitBuildMode();
+        updateInfoPanel();
+      } else {
+        document.getElementById('battle-info').textContent = canPlaceBuilding(tx, tz) ? '金钱不足!' : '此处无法建造!';
+      }
+    }
+    return;
+  }
+
+  if (selectedEntities.length === 0) return;
+
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const meshes = getAllMeshes();
+  const hits = raycaster.intersectObjects(meshes);
+
+  let clickedEnemy = null;
+  if (hits.length > 0) {
+    const ent = hits[0].object.userData.entity;
+    if (ent && ent.team !== 0 && ent.alive) {
+      clickedEnemy = ent;
+    }
+  }
+
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(groundPlane, pt);
+
+  if (pt) {
+    const tx = Math.round(pt.x / TILE_SIZE + MAP_SIZE/2);
+    const tz = Math.round(pt.z / TILE_SIZE + MAP_SIZE/2);
+
+    const selUnits = selectedEntities.filter(e => e instanceof Unit && e.alive);
+
+    if (clickedEnemy) {
+      selUnits.forEach(unit => {
+        unit.attackTarget(clickedEnemy);
+      });
+      createMoveMarker(clickedEnemy.group.position.x, clickedEnemy.group.position.z);
+      document.getElementById('battle-info').textContent =
+        `攻击指令: ${selUnits.length}个单位攻击 ${clickedEnemy.name}`;
+    } else {
+      createMoveMarker(pt.x, pt.z);
+
+      // 第3轮新增：检查是否点击了矿区 -> 矿车前往采矿
+      const harvesters = selUnits.filter(u => u.type === 'harvester');
+      const combatUnits = selUnits.filter(u => u.type !== 'harvester');
+
+      if (harvesters.length > 0 && tx >= 0 && tx < MAP_SIZE && tz >= 0 && tz < MAP_SIZE &&
+          terrain[tx][tz] === TERRAIN.ORE) {
+        harvesters.forEach(h => h.goToMine(tx, tz));
+        document.getElementById('battle-info').textContent =
+          `采矿指令: ${harvesters.length}辆矿车前往矿区 (${tx}, ${tz})`;
+      } else {
+        combatUnits.forEach((unit, i) => {
+          const offset = Math.floor(i / 3);
+          const side = i % 3 - 1;
+          unit.moveTo(
+            Math.min(MAP_SIZE-1, Math.max(0, tx + side * 2)),
+            Math.min(MAP_SIZE-1, Math.max(0, tz + offset * 2))
+          );
+        });
+        // 矿车也移动（但非采矿模式）
+        harvesters.forEach((h, i) => {
+          h.moveTo(
+            Math.min(MAP_SIZE-1, Math.max(0, tx + i * 2)),
+            Math.min(MAP_SIZE-1, Math.max(0, tz))
+          );
+        });
+        document.getElementById('battle-info').textContent =
+          `移动指令: ${selUnits.length}个单位前往 (${tx}, ${tz})`;
+      }
+    }
+  }
+});
+
+function updateInfoPanel() {
+  const selInfo = document.getElementById('sel-info');
+  const prodPanel = document.getElementById('production-panel');
+
+  if (selectedEntities.length === 0) {
+    selInfo.innerHTML = '无选中';
+    prodPanel.innerHTML = '';
+  } else if (selectedEntities.length === 1) {
+    const e = selectedEntities[0];
+    let info = `
+      <div class="stat"><span class="label">类型: </span><span class="value">${e.name}</span></div>
+      <div class="stat"><span class="label">HP: </span><span class="value">${e.hp}/${e.maxHp}</span></div>
+    `;
+    if (e instanceof Unit && e.attackDamage > 0) {
+      info += `<div class="stat"><span class="label">攻击: </span><span class="value">${e.attackDamage}</span></div>`;
+      info += `<div class="stat"><span class="label">射程: </span><span class="value">${e.attackRange}</span></div>`;
+    }
+    // 第3轮新增：矿车显示载矿量
+    if (e instanceof Unit && e.type === 'harvester') {
+      const stateLabels = { idle: '空闲', going_to_mine: '前往矿区', mining: '采矿中', returning: '返回交矿' };
+      info += `<div class="stat"><span class="label">载矿: </span><span class="value">${e.oreCarried}/${e.oreCapacity}</span></div>`;
+      info += `<div class="stat"><span class="label">状态: </span><span class="value">${stateLabels[e.miningState]}</span></div>`;
+    }
+    selInfo.innerHTML = info;
+
+    // 第3轮新增：兵营显示生产按钮
+    if (e instanceof Building && e.type === 'barracks' && e.team === 0) {
+      let prodHtml = '';
+      if (e.producing) {
+        const remaining = Math.ceil(e.produceTimer);
+        const prodName = e.producing === 'tank' ? '坦克' : '步兵';
+        prodHtml = `<div class="stat">生产中: ${prodName} <span class="countdown">${remaining}s</span></div>`;
+      } else {
+        prodHtml = `
+          <div class="stat">
+            <span class="prod-btn ${playerMoney < 300 ? 'disabled' : ''}" onclick="produceUnit('infantry')">生产步兵 ($300)</span>
+            <span class="prod-btn ${playerMoney < 800 ? 'disabled' : ''}" onclick="produceUnit('tank')">生产坦克 ($800)</span>
+          </div>
+        `;
+      }
+      prodPanel.innerHTML = prodHtml;
+    } else if (e instanceof Building && e.type === 'hq' && e.team === 0 && !e.constructing) {
+      const pp = computePower(0);
+      const powCls = pp.cap < pp.used ? '#f44' : '#0af';
+      prodPanel.innerHTML = `
+        <div class="stat"><span class="label">建造:</span></div>
+        <div class="stat">
+          <span class="prod-btn ${playerMoney < 1000 ? 'disabled' : ''}" onclick="startBuild('barracks')">兵营 ($1000)</span>
+          <span class="prod-btn ${playerMoney < 500 ? 'disabled' : ''}" onclick="startBuild('power')">电厂 ($500)</span>
+          <span class="prod-btn ${playerMoney < 800 ? 'disabled' : ''}" onclick="startBuild('tower')">防御塔 ($800)</span>
+        </div>
+        <div class="stat" style="margin-top:6px;color:${powCls}">电力: ${pp.used}/${pp.cap}${pp.cap < pp.used ? ' ⚠ 生产减速' : ''}</div>
+      `;
+    } else if (e instanceof Unit && e.type === 'harvester' && e.team === 0) {
+      const pp = computePower(0);
+      const powCls = pp.cap < pp.used ? '#f44' : '#0af';
+      prodPanel.innerHTML = `
+        <div class="stat"><span class="label">建造:</span></div>
+        <div class="stat">
+          <span class="prod-btn ${playerMoney < 1000 ? 'disabled' : ''}" onclick="startBuild('barracks')">兵营 ($1000)</span>
+          <span class="prod-btn ${playerMoney < 500 ? 'disabled' : ''}" onclick="startBuild('power')">电厂 ($500)</span>
+          <span class="prod-btn ${playerMoney < 800 ? 'disabled' : ''}" onclick="startBuild('tower')">防御塔 ($800)</span>
+        </div>
+        <div class="stat" style="margin-top:6px;color:${powCls}">电力: ${pp.used}/${pp.cap}${pp.cap < pp.used ? ' ⚠ 生产减速' : ''}</div>
+      `;
+    } else if (e instanceof Building && e.type === 'tower' && e.team === 0) {
+      prodPanel.innerHTML = `
+        <div class="stat"><span class="label">攻击: </span><span class="value">${e.attackDamage}</span></div>
+        <div class="stat"><span class="label">射程: </span><span class="value">${e.attackRange}</span></div>
+        <div class="stat"><span class="label">冷却: </span><span class="value">${e.attackCooldown}s</span></div>
+      `;
+    } else if (e instanceof Building && e.constructing) {
+      prodPanel.innerHTML = `<div class="stat">建造中: <span class="countdown">${Math.ceil(e.constructTimer)}s</span></div>`;
+    } else {
+      prodPanel.innerHTML = '';
+    }
+  } else {
+    const alive = selectedEntities.filter(e => e.alive).length;
+    selInfo.innerHTML = `
+      <div class="stat"><span class="value">${alive} 个单位已选中</span></div>
+    `;
+    prodPanel.innerHTML = '';
+  }
+}
+
+// 第3轮新增：生产单位全局函数
+window.produceUnit = function(unitType) {
+  const barracks = selectedEntities.find(e => e instanceof Building && e.type === 'barracks' && e.team === 0 && e.alive);
+  if (!barracks) return;
+  if (barracks.startProduction(unitType)) {
+    updateInfoPanel();
+  }
+};
+
+// ===== 第3轮新增：胜负判定 =====
+function checkGameOver() {
+  if (gameOver) return;
+  const redBuildings = buildings.filter(b => b.team === 0 && b.alive);
+  const blueBuildings = buildings.filter(b => b.team === 1 && b.alive);
+
+  if (redBuildings.length === 0) {
+    showGameOver(false);
+  } else if (blueBuildings.length === 0) {
+    showGameOver(true);
+  }
+}
+
+function showGameOver(playerWin) {
+  gameOver = true;
+  const overlay = document.getElementById('game-over');
+  const text = document.getElementById('game-over-text');
+  const sub = document.getElementById('game-over-sub');
+  overlay.style.display = 'flex';
+  if (playerWin) {
+    text.className = 'win';
+    text.textContent = '胜 利';
+    sub.textContent = '敌方基地已被完全摧毁！';
+  } else {
+    text.className = 'lose';
+    text.textContent = '失 败';
+    sub.textContent = '我方基地已被完全摧毁...';
+  }
+}
+
+// ===== 小地图 =====
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+function drawMinimap() {
+  const w = 180, h = 180;
+  minimapCtx.fillStyle = '#111';
+  minimapCtx.fillRect(0, 0, w, h);
+
+  const scale = w / MAP_SIZE;
+  for (let x = 0; x < MAP_SIZE; x++) {
+    for (let z = 0; z < MAP_SIZE; z++) {
+      const t = terrain[x][z];
+      switch(t) {
+        case TERRAIN.GRASS: minimapCtx.fillStyle = '#2a5020'; break;
+        case TERRAIN.WATER: minimapCtx.fillStyle = '#1a4a7a'; break;
+        case TERRAIN.ORE: minimapCtx.fillStyle = '#daa520'; break;
+        case TERRAIN.ROCK: minimapCtx.fillStyle = '#666'; break;
+      }
+      minimapCtx.fillRect(x * scale, z * scale, scale + 0.5, scale + 0.5);
+    }
+  }
+
+  buildings.filter(b => b.alive).forEach(b => {
+    minimapCtx.fillStyle = b.team === 0 ? '#f44' : '#44f';
+    minimapCtx.fillRect(b.tileX * scale - 2, b.tileZ * scale - 2, 5, 5);
+  });
+
+  units.filter(u => u.alive).forEach(u => {
+    minimapCtx.fillStyle = u.team === 0 ? '#f88' : '#88f';
+    const ux = (u.group.position.x / TILE_SIZE + MAP_SIZE/2) * scale;
+    const uz = (u.group.position.z / TILE_SIZE + MAP_SIZE/2) * scale;
+    minimapCtx.fillRect(ux - 1, uz - 1, 3, 3);
+  });
+
+  const cx = (camera.position.x / TILE_SIZE + MAP_SIZE/2) * scale;
+  const cz = (camera.position.z / TILE_SIZE + MAP_SIZE/2) * scale;
+  minimapCtx.strokeStyle = '#fff';
+  minimapCtx.lineWidth = 1;
+  minimapCtx.strokeRect(cx - 15, cz - 15, 30, 30);
+}
+
+// ===== 主循环 =====
+let frameCount = 0;
+let lastTime = performance.now();
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  frameCount++;
+
+  const dt = clock.getDelta();
+
+  if (gameOver) {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  updateCamera();
+
+  for (let i = units.length - 1; i >= 0; i--) {
+    if (!units[i].alive) {
+      if (units[i].selected) {
+        const idx = selectedEntities.indexOf(units[i]);
+        if (idx >= 0) selectedEntities.splice(idx, 1);
+      }
+      units.splice(i, 1);
+    }
+  }
+
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    if (!buildings[i].alive) {
+      if (buildings[i].selected) {
+        const idx = selectedEntities.indexOf(buildings[i]);
+        if (idx >= 0) selectedEntities.splice(idx, 1);
+      }
+      buildings.splice(i, 1);
+    }
+  }
+
+  units.forEach(u => u.update(dt));
+  buildings.forEach(b => b.update(dt));
+
+  updateMoveMarkers(dt);
+  updateProjectiles(dt);
+  updateExplosions(dt);
+
+  // 胜负检测
+  if (frameCount % 60 === 0) checkGameOver();
+
+  // 第4轮新增：蓝方自动造兵
+  if (frameCount % 180 === 0) blueAutoBuild();
+
+  // 第5轮新增：蓝方进攻AI
+  blueAttackTimer -= dt;
+  if (blueAttackTimer <= 0) {
+    blueAttackTimer = 60;
+    blueAttackAI();
+  }
+
+  if (frameCount % 10 === 0) drawMinimap();
+  if (frameCount % 30 === 0) {
+    updateInfoPanel();
+    document.getElementById('money-val').textContent = playerMoney;
+    document.getElementById('ore-val').textContent = playerOre;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  const a = window.innerWidth / window.innerHeight;
+  camera.left = -frustum * a; camera.right = frustum * a;
+  camera.top = frustum; camera.bottom = -frustum;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+camera.position.set(20, 60, 20);
+
+// 第5轮新增：建造模式鼠标跟随预览
+const buildGhost = document.getElementById('build-ghost');
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!buildModeType) {
+    buildGhost.style.display = 'none';
+    return;
+  }
+  const labels = { barracks: '兵营', power: '电厂', tower: '防御塔' };
+  buildGhost.style.display = 'block';
+  buildGhost.style.left = (e.clientX - 20) + 'px';
+  buildGhost.style.top = (e.clientY - 20) + 'px';
+  buildGhost.textContent = labels[buildModeType] || buildModeType;
+});
+</script>
+</body>
+</html>
