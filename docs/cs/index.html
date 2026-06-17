@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinyStrike - 3D FPS Demo</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./lib/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <div id="hud">
+    <div id="crosshair">+</div>
+
+    <div id="health-panel">
+      <div id="health-icon">♥</div>
+      <div id="health-bar-wrap">
+        <div id="health-bar"></div>
+      </div>
+      <div id="health-text">100</div>
+    </div>
+
+    <div id="ammo-panel">
+      <span id="ammo-icon">▣</span>
+      <span id="ammo-text"><span class="current">30</span> / 90</span>
+      <span id="reload-indicator">换弹中...</span>
+    </div>
+
+    <div id="stats-panel">
+      <div class="stat">击杀: <span id="kills-text">0</span></div>
+      <div class="stat">敌人: <span id="bots-alive">5</span></div>
+    </div>
+
+    <div id="hit-marker">✕</div>
+    <div id="damage-flash"></div>
+    <div id="status-message"></div>
+  </div>
+
+  <div id="start-screen">
+    <div class="overlay-content">
+      <h1>TinyStrike</h1>
+      <p class="subtitle">Low Poly FPS Demo</p>
+      <div class="controls">
+        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</p>
+        <p><kbd>Space</kbd> 跳跃</p>
+        <p><kbd>Shift</kbd> 冲刺</p>
+        <p><kbd>鼠标左键</kbd> 射击</p>
+        <p><kbd>R</kbd> 换弹</p>
+      </div>
+      <p class="start-hint">点击屏幕开始游戏</p>
+    </div>
+  </div>
+
+  <div id="death-screen">
+    <div class="overlay-content">
+      <h1>已阵亡</h1>
+      <p>你被机器人击败了!</p>
+      <button id="restart-btn">重新开始</button>
+    </div>
+  </div>
+
+  <script type="module" src="./modules/game/main.js"></script>
+</body>
+</html>
