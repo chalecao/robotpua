@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>TinyKart - 3D Kart Racer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        canvas { display: block; }
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+        .hud-item { font-size: 24px; margin-bottom: 10px; }
+        #nitro-bar-container {
+            width: 200px;
+            height: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid white;
+            margin-top: 5px;
+        }
+        #nitro-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ffcc00, #ff0000);
+            transition: width 0.1s;
+        }
+        #drift-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 36px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #ff6600;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        #hit-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            font-size: 48px;
+            font-weight: bold;
+            color: #ff3300;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #ff0000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+        #item-get-indicator {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            font-size: 36px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #ff6600;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-layer">
+        <div class="hud-item">Speed: <span id="speed-display">0</span> km/h</div>
+        <div class="hud-item">Nitro Charge</div>
+        <div id="nitro-bar-container"><div id="nitro-bar"></div></div>
+        <div class="hud-item">Lap: <span id="lap-display">0</span></div>
+    </div>
+    <div id="drift-indicator">DRIFT!</div>
+    <div id="hit-indicator">HIT!</div>
+    <div id="item-get-indicator">ITEM GET!</div>
+
+    <script type="module" src="/modules/game/main.js"></script>
+</body>
+</html>
