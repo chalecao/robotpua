@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Balance — 3D Physics Puzzle</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a14; }
+        #game-container { width: 100%; height: 100%; position: relative; }
+        canvas { display: block; }
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        #hud > * { pointer-events: auto; }
+
+        #top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 28px;
+            font-family: 'Courier New', monospace; font-size: 14px;
+            color: rgba(255,255,255,0.75);
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 100%);
+        }
+        #top-bar .level-name {
+            color: #00ddff; font-weight: bold; letter-spacing: 3px;
+            text-shadow: 0 0 12px rgba(0,220,255,0.4);
+        }
+        #top-bar .ball-indicator { display: flex; gap: 10px; }
+        #top-bar .ball-dot {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #top-bar .ball-dot.active {
+            border-color: rgba(255,255,255,0.9);
+            transform: scale(1.35);
+            box-shadow: 0 0 12px rgba(255,255,255,0.5), 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #top-bar .ball-dot.paper { background: radial-gradient(circle at 35% 35%, #ffffff, #cccccc); }
+        #top-bar .ball-dot.wood { background: radial-gradient(circle at 35% 35%, #b8881e, #6b4e0e); }
+        #top-bar .ball-dot.iron { background: radial-gradient(circle at 35% 35%, #778899, #334455); }
+
+        #controls-hint {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            font-family: 'Courier New', monospace; font-size: 11px;
+            color: rgba(255,255,255,0.3); text-align: center;
+            letter-spacing: 1px; transition: opacity 1s;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        #switch-hint {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Courier New', monospace; font-size: 22px;
+            color: #fff; opacity: 0; transition: opacity 0.3s;
+            text-shadow: 0 0 20px rgba(0,204,255,0.8), 0 0 40px rgba(0,204,255,0.3);
+            letter-spacing: 4px;
+        }
+
+        #victory-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; justify-content: center; align-items: center;
+            flex-direction: column;
+            background: radial-gradient(ellipse at center, rgba(0,30,20,0.7) 0%, rgba(5,5,10,0.9) 100%);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+        }
+        #victory-screen.show { display: flex; }
+        #victory-screen h1 {
+            font-family: 'Courier New', monospace; font-size: 52px;
+            color: #00ff88; letter-spacing: 8px;
+            text-shadow: 0 0 40px rgba(0,255,136,0.5), 0 0 80px rgba(0,255,136,0.2);
+            margin-bottom: 16px;
+        }
+        #victory-screen p {
+            font-family: 'Courier New', monospace; font-size: 16px;
+            color: rgba(255,255,255,0.6); margin-bottom: 36px; letter-spacing: 2px;
+        }
+        #victory-screen button {
+            font-family: 'Courier New', monospace; font-size: 14px;
+            padding: 14px 40px; background: transparent;
+            border: 2px solid #00ff88; color: #00ff88;
+            cursor: pointer; letter-spacing: 3px;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 8px rgba(0,255,136,0.3);
+        }
+        #victory-screen button:hover {
+            background: #00ff88; color: #05050a;
+            box-shadow: 0 0 20px rgba(0,255,136,0.4);
+        }
+
+        #loading-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column;
+            background: radial-gradient(ellipse at center, #0a1020 0%, #05050a 100%);
+            z-index: 200; transition: opacity 0.8s;
+        }
+        #loading-screen.hidden { opacity: 0; pointer-events: none; }
+        #loading-screen h2 {
+            font-family: 'Courier New', monospace; font-size: 28px;
+            color: #00ccff; letter-spacing: 6px; margin-bottom: 8px;
+            text-shadow: 0 0 30px rgba(0,204,255,0.4);
+        }
+        #loading-screen .subtitle {
+            font-family: 'Courier New', monospace; font-size: 11px;
+            color: rgba(255,255,255,0.3); letter-spacing: 4px; margin-bottom: 32px;
+        }
+        #loading-bar-bg {
+            width: 220px; height: 2px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 1px; overflow: hidden;
+        }
+        #loading-bar {
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #00ccff, #00ff88);
+            transition: width 0.3s;
+            box-shadow: 0 0 8px rgba(0,204,255,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="hud">
+        <div id="top-bar">
+            <span class="level-name" id="level-name">LEVEL 01 — BRIDGE</span>
+            <div class="ball-indicator">
+                <div class="ball-dot paper active" id="dot-paper"></div>
+                <div class="ball-dot wood" id="dot-wood"></div>
+                <div class="ball-dot iron" id="dot-iron"></div>
+            </div>
+        </div>
+        <div id="controls-hint">WASD / Arrow Keys — Move &nbsp;|&nbsp; 1/2/3 — Switch Ball &nbsp;|&nbsp; R — Restart</div>
+        <div id="switch-hint"></div>
+    </div>
+    <div id="victory-screen">
+        <h1>BALANCED</h1>
+        <p id="victory-text">Level Complete</p>
+        <button id="next-level-btn">NEXT LEVEL →</button>
+    </div>
+    <div id="loading-screen">
+        <h2>THE BALANCE</h2>
+        <div class="subtitle">PHYSICS PUZZLE</div>
+        <div id="loading-bar-bg"><div id="loading-bar"></div></div>
+    </div>
+    <script type="module" src="./modules/game/main.js"></script>
+</body>
+</html>
