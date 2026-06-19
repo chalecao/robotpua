@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>NEON ARENA · 霓虹街机</title>
-<meta name="description" content="踏入霓虹维度，开启像素狂欢 — 21 款轻量网页游戏集合。">
+<meta name="description" content="踏入霓虹维度，开启像素狂欢 — 25 款轻量网页游戏集合。">
 <meta name="author" content="NEON ARENA">
 <meta property="og:site_name" content="robotpua.com">
 <meta property="og:url" content="https://robotpua.com/">
 <meta property="og:title" content="NEON ARENA · 霓虹街机">
-<meta property="og:description" content="踏入霓虹维度，开启像素狂欢 — 21 款轻量网页游戏集合。">
+<meta property="og:description" content="踏入霓虹维度，开启像素狂欢 — 25 款轻量网页游戏集合。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Audiowide&family=Space+Mono:wght@400;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
@@ -1015,7 +1015,7 @@
 
   <div class="hero-meta">
     <div class="meta-item">
-      <span class="meta-num pink" data-count="21">21</span>
+      <span class="meta-num pink" data-count="25">25</span>
       <span class="meta-label">Games</span>
     </div>
     <div class="meta-item">
@@ -1094,7 +1094,11 @@
     { id: 'dots-and-boxes',title: '点格棋',       en: 'Dots and Boxes',    cat: 'puzzle',   emoji: '⬛' },
     { id: 'hangman',       title: '猜单词',       en: 'Hangman',           cat: 'puzzle',   emoji: '💀' },
     { id: 'maze-duel',     title: '迷宫对战',     en: 'Maze Duel',         cat: 'action',   emoji: '🌀' },
-    { id: 'plane-battle',  title: '飞机大战',     en: 'Plane Battle',      cat: 'action',   emoji: '✈️' }
+    { id: 'plane-battle',  title: '飞机大战',     en: 'Plane Battle',      cat: 'action',   emoji: '✈️' },
+    { id: 'redalert',      title: '红色警戒',     en: 'Red Alert Pixel',   cat: 'strategy', emoji: '🚁', url: 'redalert.html' },
+    { id: 'cs',            title: '反恐精英',     en: 'CS Pixel',          cat: 'action',   emoji: '🔫', url: '/cs' },
+    { id: 'balance',       title: '平衡滚球',     en: 'Balance Ball 3D',   cat: 'action',   emoji: '🎱', url: '/balance' },
+    { id: 'cardin',        title: '跑跑卡丁车',   en: 'KartRider Pixel',   cat: 'action',   emoji: '🏎️', url: '/cardin' }
   ];
 
   const CAT_LABEL = { strategy: 'STRATEGY', puzzle: 'PUZZLE', board: 'BOARD', action: 'ACTION' };
@@ -1108,7 +1112,7 @@
       return;
     }
     grid.innerHTML = list.map((g, i) => `
-      <a class="card" data-cat="${g.cat}" href="game/${g.id}.html" target="_blank" rel="noopener" style="--cat-color: var(--${g.cat === 'strategy' ? 'pink' : g.cat === 'puzzle' ? 'yellow' : g.cat === 'board' ? 'purple' : 'orange'})">
+      <a class="card" data-cat="${g.cat}" href="${g.url || `game/${g.id}.html`}" target="_blank" rel="noopener" style="--cat-color: var(--${g.cat === 'strategy' ? 'pink' : g.cat === 'puzzle' ? 'yellow' : g.cat === 'board' ? 'purple' : 'orange'})">
         <div class="card-top">
           <span class="emoji">${g.emoji}</span>
           <span class="cat-tag">${CAT_LABEL[g.cat]}</span>
