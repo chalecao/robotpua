@@ -55,6 +55,7 @@ export class GameLoop {
     this.hud = new HUD();
     this.hud.updateHealth(this.player.health);
     this.hud.updateAmmo(this.weapon.ammo, this.weapon.reserveAmmo, false);
+    this.hud.updateGrenades(this.weapon.grenades);
     this.hud.updateKills(this.kills);
     this.hud.updateBotsAlive(this.initialBots);
     this.hud.showStartScreen();
@@ -90,7 +91,6 @@ export class GameLoop {
     requestAnimationFrame(() => this.animate());
 
     const dt = Math.min(this.clock.getDelta(), 0.1);
-    this.input.update();
     this.hud.update(dt);
 
     if (this.player.isAlive) {
@@ -99,6 +99,10 @@ export class GameLoop {
       this.updateWeapon(dt);
       this.weapon.updatePosition(this.camera);
     }
+
+    // Call input.update() at the END of the frame so that isJustPressed()
+    // flags set by keydown handlers are still valid when updateWeapon() checks them.
+    this.input.update();
 
     this.botManager.update(dt, this.player.position, this.map, (bot) => {
       if (!this.player.isAlive) return;
@@ -122,9 +126,10 @@ export class GameLoop {
       this.waveClearTimer += dt;
       if (this.waveClearTimer >= this.waveClearDelay) {
         this.wave++;
+        this.weapon.addGrenades(2); // 杀死一波增加2个手榴弹
+        this.hud.showMessage(`Wave ${this.wave} - 💣 +2`);
         this.botManager.respawnAll();
         this.waveClearTimer = null;
-        this.hud.showMessage(`Wave ${this.wave}`);
       }
     } else {
       this.waveClearTimer = null;
@@ -202,6 +207,7 @@ export class GameLoop {
 
     const ammo = this.weapon.getAmmo();
     this.hud.updateAmmo(ammo.current, ammo.reserve, this.weapon.isReloading);
+    this.hud.updateGrenades(ammo.grenades);
 
     if (this.input.isMouseDown() && !this.weapon.isReloading) {
       this.weapon.fire(this.botManager.getAllBots(), this.map.getWallMeshes(), (bot, damage, isHead) => {
@@ -209,12 +215,26 @@ export class GameLoop {
         this.hud.showHitMarker(isHead);
         if (!bot.isAlive) {
           this.kills++;
-          this.hud.showMessage('击杀!');
+          this.weapon.addAmmo(5); // 杀一个机器人增加5发子弹
+          this.hud.showMessage('击杀! +5 子弹');
         }
       });
     }
 
     if (this.input.isJustPressed('KeyR')) this.weapon.reload();
+
+    // 投掷手榴弹: G 键
+    if (this.input.isJustPressed('KeyG')) {
+      const grenade = this.weapon.throwGrenade(this.scene);
+      if (grenade) {
+        const weaponRef = this.weapon;
+        const botManagerRef = this.botManager;
+        grenade.onExplode = (pos) => {
+          weaponRef.explodeGrenade(this.scene, pos, botManagerRef.getAllBots());
+        };
+        this.weapon.grenadeExplosions.push(grenade);
+      }
+    }
 
     if (this.weapon.ammo === 0 && !this.weapon.isReloading && this.weapon.reserveAmmo > 0) {
       this.weapon.reload();
@@ -230,6 +250,8 @@ export class GameLoop {
     this.weapon.ammo = this.weapon.config.maxAmmo;
     this.weapon.reserveAmmo = this.weapon.config.reserveAmmo;
     this.weapon.isReloading = false;
+    this.weapon.grenades = 5;
+    this.weapon.grenadeCooldown = 0;
 
     this.botManager.fullReset();
 

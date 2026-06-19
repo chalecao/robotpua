@@ -17,6 +17,7 @@ export class HUD {
       statusMessage: document.getElementById('status-message'),
       reloadIndicator: document.getElementById('reload-indicator'),
       botsAlive: document.getElementById('bots-alive'),
+      grenadeText: document.getElementById('grenade-text'),
     };
     this.hitMarkerTimer = 0;
   }
@@ -47,6 +48,12 @@ export class HUD {
 
   updateBotsAlive(count) {
     this.elements.botsAlive.textContent = count;
+  }
+
+  updateGrenades(count) {
+    if (this.elements.grenadeText) {
+      this.elements.grenadeText.textContent = `💣 ${count}`;
+    }
   }
 
   showHitMarker(isHeadshot) {

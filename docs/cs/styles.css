@@ -99,6 +99,21 @@ body {
   gap: 8px;
 }
 
+#grenade-panel {
+  position: absolute;
+  bottom: 30px;
+  right: 260px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff9933;
+}
+
 #ammo-icon {
   color: #f39c12;
   font-size: 18px;
